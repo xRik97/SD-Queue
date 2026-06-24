@@ -149,31 +149,48 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .empty{text-align:center;padding:2rem 1rem;color:var(--faint);font-size:13px}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border-s);border-radius:4px}
 
-/* SETUP OVERLAY */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem}
-.modal{background:var(--surface);border-radius:var(--r);padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
-.modal h2{font-size:18px;font-weight:700;margin-bottom:.5rem}
-.modal p{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
-.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--accent);cursor:pointer}
+/* ROOM SWITCHER DROPDOWN */
+.room-drop{position:relative}
+.room-pill{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:4px 12px;border-radius:20px;border:1px solid var(--accent);cursor:pointer;letter-spacing:.03em}
+.room-pill:hover{opacity:.85}
+.room-menu{position:absolute;top:calc(100% + 6px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;z-index:99;padding:.5rem}
+.room-menu.hidden{display:none}
+.rm-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:.45rem .65rem;border-radius:var(--rs);cursor:pointer;font-size:13px}
+.rm-item:hover{background:var(--bg)}
+.rm-item.active{background:var(--accent-l);color:var(--accent);font-weight:600}
+.rm-name{flex:1;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.rm-del{background:none;border:none;cursor:pointer;color:var(--faint);font-size:13px;padding:1px 4px;border-radius:3px;line-height:1}
+.rm-del:hover{color:var(--red);background:var(--red-l)}
+.rm-add{display:flex;gap:6px;margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border)}
+.rm-add input{flex:1;padding:5px 8px;font-size:12px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);outline:none;text-transform:uppercase;letter-spacing:.05em;font-variant-numeric:tabular-nums;font-family:inherit}
+.rm-add input:focus{border-color:var(--accent)}
+.rm-add button{padding:5px 10px;font-size:12px;border-radius:var(--rs);border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap}
+/* ROOM TABS (T1 view) */
+.room-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.rtab{padding:5px 16px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border-s);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .12s}
+.rtab:hover{border-color:var(--accent);color:var(--accent)}
+.rtab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style>
 </head>
 <body>
 
-<!-- ROOM SETUP -->
-<div class="overlay" id="setup">
-  <div class="modal">
-    <h2>SD Queue 🎫</h2>
-    <p>ใส่รหัสห้องเดียวกันทุกเครื่อง เพื่อซิงค์ข้อมูลร่วมกัน real-time</p>
-    <div class="mb"><label class="lbl">รหัสห้อง (Room Code)</label>
-      <input type="text" id="room-inp" placeholder="เช่น SHIFT1, MORNING, ABC123" style="font-size:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase" maxlength="12" /></div>
-    <button class="btn btn-p btn-full" onclick="joinRoom()" style="padding:10px">เข้าห้อง →</button>
-    <p style="font-size:11px;color:var(--faint);margin-top:.75rem;text-align:center">ทุกคนที่ใช้รหัสเดียวกันจะเห็นข้อมูลเดียวกัน</p>
-  </div>
-</div>
-
 <nav>
   <div class="logo">SD <span>Queue</span></div>
-  <span id="room-label" style="font-size:12px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border)"></span>
+
+  <!-- Room switcher -->
+  <div class="room-drop" id="room-drop">
+    <div class="room-pill" onclick="toggleRoomMenu()">
+      🏠 <span id="room-label">เลือกห้อง</span> ▾
+    </div>
+    <div class="room-menu hidden" id="room-menu">
+      <div id="rm-list"></div>
+      <div class="rm-add">
+        <input type="text" id="rm-inp" placeholder="รหัสห้องใหม่" maxlength="12"
+               onkeydown="if(event.key==='Enter')addRoom()" />
+        <button onclick="addRoom()">+ เพิ่ม</button>
+      </div>
+    </div>
+  </div>
   <div class="nav-r">
     <div class="sync-badge"><span class="dot loading" id="sdot"></span><span id="stxt">กำลังเชื่อมต่อ...</span></div>
     <div class="clock" id="clock">--:--:--</div>
@@ -202,6 +219,8 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
     <div class="card">
       <div class="ch"><span class="ct">มอบหมาย Ticket</span></div>
       <div class="cb">
+        <!-- Room tabs -->
+        <div class="room-tabs" id="room-tabs"></div>
         <div id="mode-banner-t1" class="mode-banner rr">🔄 โหมดวนคิว — วนตามลำดับ ข้ามคนที่เบรก</div>
         <div class="aw">
           <input class="ai" type="text" id="ticketnum" placeholder="เลข Ticket เช่น INC0012345" onkeydown="if(event.key==='Enter')assignTicket()" />
@@ -285,46 +304,121 @@ let roomKey    = '';
 let state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
 let role       = 't1';
 let initBreaks = [];
-let dbRef      = null;
 let isSaving   = false;
 let unsubscribe = null;
 
 /* ============================================================
-   JOIN ROOM
+   MULTI-ROOM MANAGER
+   rooms = [{ code:'PROJECT1' }, { code:'PROJECT2' }, ...]
+   activeRoom = code ที่กำลังใช้งานอยู่
    ============================================================ */
-function joinRoom(){
-  const v = document.getElementById('room-inp').value.trim().toUpperCase();
-  if(!v){ document.getElementById('room-inp').focus(); return; }
+let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
+let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
+let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
+let dbRef      = null;
+let unsubscribe = null;
 
-  // ยกเลิก listener ห้องเก่าก่อน (ถ้ามี)
-  if(unsubscribe) unsubscribe();
+function loadRooms(){
+  try { rooms = JSON.parse(localStorage.getItem('sdq-rooms') || '[]'); } catch(e){ rooms=[]; }
+}
+function saveRooms(){
+  localStorage.setItem('sdq-rooms', JSON.stringify(rooms));
+}
 
-  roomKey = 'rooms/' + v;
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('room-label').textContent = '🏠 ' + v;
-  localStorage.setItem('sdq-last-room', v);
+function toggleRoomMenu(){
+  document.getElementById('room-menu').classList.toggle('hidden');
+}
+// ปิด menu เมื่อคลิกที่อื่น
+document.addEventListener('click', e=>{
+  if(!document.getElementById('room-drop').contains(e.target))
+    document.getElementById('room-menu').classList.add('hidden');
+});
+
+function addRoom(){
+  const inp = document.getElementById('rm-inp');
+  const code = inp.value.trim().toUpperCase();
+  if(!code) return;
+  if(!rooms.find(r=>r.code===code)) rooms.push({ code });
+  saveRooms();
+  inp.value = '';
+  switchRoom(code);
+}
+
+function removeRoom(code, ev){
+  ev.stopPropagation();
+  rooms = rooms.filter(r=>r.code!==code);
+  saveRooms();
+  if(activeRoom === code){
+    if(rooms.length) switchRoom(rooms[0].code);
+    else { activeRoom=''; roomKey=''; document.getElementById('room-label').textContent='เลือกห้อง'; state={t2list:[],logs:[],roundIdx:0,mode:'rr'}; fullRender(); }
+  }
+  renderRoomMenu();
+}
+
+function switchRoom(code){
+  if(activeRoom === code){ document.getElementById('room-menu').classList.add('hidden'); return; }
+
+  // ยกเลิก listener ห้องเก่า
+  if(unsubscribe){ unsubscribe(); unsubscribe=null; }
+
+  activeRoom = code;
+  roomKey    = 'rooms/' + code;
+  state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
+  document.getElementById('room-label').textContent = code;
+  document.getElementById('room-menu').classList.add('hidden');
+  localStorage.setItem('sdq-active-room', code);
   setSyncStatus('loading');
 
   dbRef = ref(db, roomKey);
-
-  // Real-time listener — ทุกเครื่องได้รับข้อมูลพร้อมกันทันที
-  unsubscribe = onValue(dbRef, snapshot => {
+  unsubscribe = onValue(dbRef, snapshot=>{
     const d = snapshot.val();
-    if(d){ state = d; fullRender(); }
+    if(d) state = d;
+    fullRender();
     setSyncStatus('ok');
-  }, err => {
-    console.error(err);
-    setSyncStatus('err');
-  });
+  }, err=>{ console.error(err); setSyncStatus('err'); });
 
-  setDefaults();
+  renderRoomMenu();
+  renderRoomTabs();
   fullRender();
 }
 
-document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
-document.getElementById('room-inp').addEventListener('input',   e=>{ e.target.value = e.target.value.toUpperCase(); });
-const lastRoom = localStorage.getItem('sdq-last-room');
-if(lastRoom) document.getElementById('room-inp').value = lastRoom;
+function renderRoomMenu(){
+  const el = document.getElementById('rm-list');
+  if(!rooms.length){ el.innerHTML='<div style="font-size:12px;color:var(--faint);padding:.3rem .5rem">ยังไม่มีห้อง</div>'; return; }
+  el.innerHTML = rooms.map(r=>`
+    <div class="rm-item ${r.code===activeRoom?'active':''}" onclick="switchRoom('${r.code}')">
+      <span style="font-size:14px">${r.code===activeRoom?'●':'○'}</span>
+      <span class="rm-name">${r.code}</span>
+      <button class="rm-del" onclick="removeRoom('${r.code}',event)" title="ลบห้อง">✕</button>
+    </div>`).join('');
+}
+
+function renderRoomTabs(){
+  const el = document.getElementById('room-tabs'); if(!el) return;
+  if(rooms.length <= 1){ el.innerHTML=''; return; }
+  el.innerHTML = rooms.map(r=>
+    `<button class="rtab ${r.code===activeRoom?'on':''}" onclick="switchRoom('${r.code}')">${r.code}</button>`
+  ).join('');
+}
+
+/* ============================================================
+   JOIN ROOM (initial load)
+   ============================================================ */
+function initRooms(){
+  loadRooms();
+  const last = localStorage.getItem('sdq-active-room');
+  // ถ้ามีห้องที่เคยใช้ → เข้าเลย
+  if(last && rooms.find(r=>r.code===last)){
+    switchRoom(last);
+  } else if(rooms.length){
+    switchRoom(rooms[0].code);
+  } else {
+    // ยังไม่มีห้อง → prompt ให้ใส่ห้องแรก
+    const code = (prompt('SD Queue\nใส่รหัสห้อง (Room Code) เช่น PROJECT1, SHIFT1') || '').trim().toUpperCase();
+    if(code){ rooms.push({code}); saveRooms(); switchRoom(code); }
+  }
+  renderRoomMenu();
+}
 
 /* ============================================================
    SAVE — เขียน Firebase → listener push กลับทุกเครื่องอัตโนมัติ
@@ -591,6 +685,7 @@ function getQueueOrder(){
    ============================================================ */
 function fullRender(){
   updateModeBanner();
+  renderRoomTabs();
   renderGrid('g-t1', false);
   renderGrid('g-admin', true);
   renderStats('stats'); renderStats('stats-admin');
@@ -764,14 +859,17 @@ setInterval(()=>{
 
 document.getElementById('clock').textContent=fmtT(new Date());
 renderInitBreaks();
+setDefaults();
+initRooms();
 
 /* expose ฟังก์ชันที่ HTML ใช้ผ่าน onclick= ให้ใช้งานได้จาก module scope */
 Object.assign(window, {
-  joinRoom, setRole, setMode, toggleDark,
+  joinRoom: addRoom, setRole, setMode, toggleDark,
   addT2, removeT2,
   addInitBreak, removeInitBreak,
   addBreak, removeBreak, brkChange, updateWT,
   assignTicket, clearLog,
+  toggleRoomMenu, addRoom, removeRoom, switchRoom,
 });
 </script>
 </body>
