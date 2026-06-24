@@ -148,6 +148,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 
 /* SETUP OVERLAY */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem}
+.overlay.hidden{display:none}
 .modal{background:var(--surface);border-radius:var(--r);padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
 .modal h2{font-size:18px;font-weight:700;margin-bottom:.5rem}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
@@ -389,6 +390,9 @@ function switchRoom(code){
   
   const menu = document.getElementById('room-menu');
   if(menu) menu.classList.add('hidden');
+  
+  const setup = document.getElementById('setup');
+  if(setup) setup.classList.add('hidden');
   
   localStorage.setItem('sdq-active-room', code);
   setSyncStatus('loading');
