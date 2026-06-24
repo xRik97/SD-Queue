@@ -1,11 +1,18 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SD Queue — Service Desk</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-app-compat.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-database-compat.min.js"></script>
+<!-- Firebase v12 modular SDK -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":      "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js",
+    "firebase/database": "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js"
+  }
+}
+</script>
 <style>
 :root{
   --bg:#F5F4F0;--surface:#FFFFFF;--border:#E4E2DC;--border-s:#C8C5BC;
@@ -65,6 +72,10 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;
 .lbl{font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px}
 input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
 input[type=time]{font-variant-numeric:tabular-nums}
+/* Force 24-hour clock — hide AM/PM on WebKit */
+input[type=time]::-webkit-datetime-edit-ampm-field{display:none!important}
+input[type=time]::-webkit-datetime-edit-hour-field,
+input[type=time]::-webkit-datetime-edit-minute-field{letter-spacing:.02em}
 input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .fp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mb{margin-bottom:.75rem}
@@ -222,8 +233,8 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
         <div class="mb"><label class="lbl">ชื่อ T2</label>
           <input type="text" id="t2name" placeholder="เช่น สมชาย, น้องปลา..." onkeydown="if(event.key==='Enter')addT2()" /></div>
         <div class="fp mb">
-          <div><label class="lbl">เวลาเข้า</label><input type="time" id="t2s" /></div>
-          <div><label class="lbl">เวลาเลิก</label><input type="time" id="t2e" /></div>
+          <div><label class="lbl">เวลาเข้า</label><input type="time" id="t2s" lang="en-GB" /></div>
+          <div><label class="lbl">เวลาเลิก</label><input type="time" id="t2e" lang="en-GB" /></div>
         </div>
         <label class="lbl" style="margin-bottom:4px">ช่วงเบรก (เพิ่มได้หลายช่วง)</label>
         <div id="init-brks"></div>
@@ -247,156 +258,100 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp }                          from 'firebase/app';
+import { getDatabase, ref, set, onValue }         from 'firebase/database';
+
 /* ============================================================
-   FIREBASE CONFIG — using a free public test project
-   Users can replace with their own Firebase project
+   Firebase config จาก console.firebase.google.com
    ============================================================ */
-const FB_CONFIG = {
-    apiKey: "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
-    authDomain: "sd-queue.firebaseapp.com",
-    databaseURL: "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "sd-queue",
-    storageBucket: "sd-queue.firebasestorage.app",
-    messagingSenderId: "719467952102",
-    appId: "1:719467952102:web:aad30d55ace17b13d0c827",
-    measurementId: "G-XHS3WM8251"
+const firebaseConfig = {
+  apiKey:            "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
+  authDomain:        "sd-queue.firebaseapp.com",
+  databaseURL:       "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "sd-queue",
+  storageBucket:     "sd-queue.firebasestorage.app",
+  messagingSenderId: "719467952102",
+  appId:             "1:719467952102:web:aad30d55ace17b13d0c827",
 };
 
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
 /* ============================================================
-   FALLBACK: use BroadcastChannel + localStorage for same-device
-   Real multi-device needs actual Firebase credentials
-   We'll use a simulated sync via the Anthropic storage API
-   as the shared backend (polling every 1.5s)
+   STATE & GLOBALS
    ============================================================ */
-
-let roomKey = '';
-let state = { t2list:[], logs:[], roundIdx:0, mode:'rr', version:0 };
-let role = 't1';
+let roomKey    = '';
+let state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
+let role       = 't1';
 let initBreaks = [];
-let isSaving = false;
-let myVersion = 0;
-let db = null; // Firebase DB ref
+let dbRef      = null;
+let isSaving   = false;
+let unsubscribe = null;
 
-// BroadcastChannel for same-browser sync (instant)
-let bc = null;
-
+/* ============================================================
+   JOIN ROOM
+   ============================================================ */
 function joinRoom(){
   const v = document.getElementById('room-inp').value.trim().toUpperCase();
   if(!v){ document.getElementById('room-inp').focus(); return; }
-  roomKey = 'sdq-' + v;
+
+  // ยกเลิก listener ห้องเก่าก่อน (ถ้ามี)
+  if(unsubscribe) unsubscribe();
+
+  roomKey = 'rooms/' + v;
   document.getElementById('setup').style.display = 'none';
   document.getElementById('room-label').textContent = '🏠 ' + v;
   localStorage.setItem('sdq-last-room', v);
-  initSync();
+  setSyncStatus('loading');
+
+  dbRef = ref(db, roomKey);
+
+  // Real-time listener — ทุกเครื่องได้รับข้อมูลพร้อมกันทันที
+  unsubscribe = onValue(dbRef, snapshot => {
+    const d = snapshot.val();
+    if(d){ state = d; fullRender(); }
+    setSyncStatus('ok');
+  }, err => {
+    console.error(err);
+    setSyncStatus('err');
+  });
+
   setDefaults();
   fullRender();
 }
 
 document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
-document.getElementById('room-inp').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase(); });
-
-// Pre-fill last room
+document.getElementById('room-inp').addEventListener('input',   e=>{ e.target.value = e.target.value.toUpperCase(); });
 const lastRoom = localStorage.getItem('sdq-last-room');
 if(lastRoom) document.getElementById('room-inp').value = lastRoom;
 
 /* ============================================================
-   SYNC ENGINE
-   Primary: window.storage (Anthropic shared storage, works in Artifact)
-   Fallback: localStorage + BroadcastChannel (same-device)
+   SAVE — เขียน Firebase → listener push กลับทุกเครื่องอัตโนมัติ
    ============================================================ */
-async function initSync(){
-  setSyncStatus('loading');
-
-  // BroadcastChannel for instant same-device/tab sync
-  try {
-    bc = new BroadcastChannel(roomKey);
-    bc.onmessage = (e) => {
-      const d = e.data;
-      if(d && d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    };
-  } catch(e) {}
-
-  // Load initial state
-  await loadState();
-  setSyncStatus('ok');
-
-  // Poll every 1.5s for cross-device sync
-  setInterval(syncPoll, 1500);
-}
-
-async function syncPoll(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      if(d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    }
-    setSyncStatus('ok');
-  } catch(e) {
-    // Fallback to localStorage
-    try {
-      const raw = localStorage.getItem(roomKey);
-      if(raw){
-        const d = JSON.parse(raw);
-        if(d.version > myVersion){ state=d; myVersion=d.version; fullRender(); }
-      }
-    } catch(e2){}
-    setSyncStatus('warn');
-  }
-}
-
-async function loadState(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      state = d;
-      myVersion = d.version || 0;
-    }
-  } catch(e) {
-    const raw = localStorage.getItem(roomKey);
-    if(raw) try { state = JSON.parse(raw); myVersion = state.version||0; } catch(e2){}
-  }
-}
-
-async function saveState(){
-  if(isSaving) return;
+function saveState(){
+  if(isSaving || !dbRef) return;
   isSaving = true;
-  myVersion = (myVersion||0) + 1;
-  state.version = myVersion;
-  const payload = JSON.stringify(state);
-
-  // BroadcastChannel (instant for same device)
-  try { if(bc) bc.postMessage(state); } catch(e){}
-
-  // localStorage fallback
-  try { localStorage.setItem(roomKey, payload); } catch(e){}
-
-  // Shared storage (cross-device)
-  try {
-    await window.storage.set(roomKey, payload, true);
-    setSyncStatus('ok');
-  } catch(e) {
-    setSyncStatus('warn');
-  }
-  isSaving = false;
+  set(dbRef, state)
+    .then(()  => setSyncStatus('ok'))
+    .catch(e  => { console.error(e); setSyncStatus('err'); })
+    .finally(()=> { isSaving = false; });
 }
 
+/* ============================================================
+   SYNC STATUS INDICATOR
+   ============================================================ */
 function setSyncStatus(s){
   const dot = document.getElementById('sdot');
   const txt = document.getElementById('stxt');
-  if(s==='ok'){ dot.className='dot ok'; txt.textContent='ซิงค์แล้ว'; }
-  else if(s==='warn'){ dot.className='dot'; txt.textContent='ซิงค์จำกัด (อุปกรณ์เดียวกัน)'; dot.style.background='var(--amber)'; }
-  else { dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...'; }
+  if(s==='ok'){
+    dot.className='dot ok'; dot.style.background='';
+    txt.textContent='ซิงค์แล้ว';
+  } else if(s==='err'){
+    dot.className='dot err'; txt.textContent='เชื่อมต่อไม่ได้';
+  } else {
+    dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...';
+  }
 }
 
 /* ============================================================
@@ -481,7 +436,8 @@ function renderInitBreaks(){
 
 function mkTI(val, onChange){
   const inp=document.createElement('input');
-  inp.type='time'; inp.className='ti'; inp.value=val||''; inp.lang='th';
+  inp.type='time'; inp.className='ti'; inp.value=val||'';
+  inp.lang='en-GB'; // force 24hr in all browsers
   inp.addEventListener('change',()=>onChange(inp.value)); return inp;
 }
 function mkSep(){ const s=document.createElement('span'); s.className='sep'; s.textContent='–'; return s; }
@@ -808,6 +764,15 @@ setInterval(()=>{
 
 document.getElementById('clock').textContent=fmtT(new Date());
 renderInitBreaks();
+
+/* expose ฟังก์ชันที่ HTML ใช้ผ่าน onclick= ให้ใช้งานได้จาก module scope */
+Object.assign(window, {
+  joinRoom, setRole, setMode, toggleDark,
+  addT2, removeT2,
+  addInitBreak, removeInitBreak,
+  addBreak, removeBreak, brkChange, updateWT,
+  assignTicket, clearLog,
+});
 </script>
 </body>
 </html>
