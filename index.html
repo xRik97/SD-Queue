@@ -45,7 +45,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
 .dot.ok{animation:pulse 2s infinite}.dot.err{background:var(--red);animation:none}.dot.loading{background:var(--amber);animation:pulse .8s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--rs);width:32px;height:32px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:15px}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--rs);width:32px;height:32px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
 .icon-btn:hover{background:var(--bg)}
 
 /* TOPBAR (role + mode) */
@@ -71,12 +71,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;
 
 /* FORM */
 .lbl{font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px}
-input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
+input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s}
 input[type=time]{font-variant-numeric:tabular-nums}
 input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .fp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mb{margin-bottom:.75rem}
-.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border-s);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);transition:all .12s;white-space:nowrap;font-family:inherit}
+.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border-s);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);transition:all .12s;white-space:nowrap}
 .btn:hover{background:var(--bg)}.btn:active{transform:scale(.98)}
 .btn-p{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-p:hover{opacity:.88}
 .btn-full{width:100%}
@@ -151,7 +151,20 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .modal{background:var(--surface);border-radius:var(--r);padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
 .modal h2{font-size:18px;font-weight:700;margin-bottom:.5rem}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
-.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--accent);cursor:pointer}
+.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--accent)}
+
+/* ROOM MENU */
+#room-drop{position:relative}
+#room-menu{position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);box-shadow:var(--shadow);z-index:100;min-width:200px;max-height:300px;overflow-y:auto}
+#room-menu.hidden{display:none}
+.rm-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:all .15s;border-bottom:1px solid var(--border)}
+.rm-item:hover{background:var(--bg)}
+.rm-item.active{background:var(--accent-l);color:var(--accent);border-bottom-color:var(--accent-l)}
+.rm-name{flex:1;font-size:13px;font-weight:500}
+.rm-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px;transition:color .15s}
+.rm-del:hover{color:var(--red)}
+#room-menu>div:last-child{border-top:1px solid var(--border);padding:8px;display:flex;gap:4px}
+#room-menu>div:last-child input{flex:1;padding:6px 8px;font-size:12px}
 </style>
 </head>
 <body>
@@ -163,7 +176,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
     <p>ใส่รหัสห้องเดียวกันทุกเครื่อง เพื่อซิงค์ข้อมูลร่วมกัน real-time</p>
     <div class="mb"><label class="lbl">รหัสห้อง (Room Code)</label>
       <input type="text" id="room-inp" placeholder="เช่น SHIFT1, MORNING, ABC123" style="font-size:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase" maxlength="12" /></div>
-    <button class="btn btn-p btn-full" onclick="joinRoom()" style="padding:10px">เข้าห้อง →</button>
+    <button class="btn btn-p btn-full" onclick="addRoom()" style="padding:10px">เข้าห้อง →</button>
     <p style="font-size:11px;color:var(--faint);margin-top:.75rem;text-align:center">ทุกคนที่ใช้รหัสเดียวกันจะเห็นข้อมูลเดียวกัน</p>
   </div>
 </div>
@@ -172,6 +185,16 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
   <div class="logo">SD <span>Queue</span></div>
   <span id="room-label" style="font-size:12px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border)"></span>
   <div class="nav-r">
+    <div id="room-drop">
+      <button class="icon-btn" onclick="toggleRoomMenu()" title="เปลี่ยนห้อง">🏠</button>
+      <div id="room-menu" class="hidden">
+        <div id="rm-list"></div>
+        <div>
+          <input id="rm-inp" type="text" placeholder="ห้องใหม่" />
+          <button class="btn btn-xs btn-p" onclick="addRoom()">+</button>
+        </div>
+      </div>
+    </div>
     <div class="sync-badge"><span class="dot loading" id="sdot"></span><span id="stxt">กำลังเชื่อมต่อ...</span></div>
     <div class="clock" id="clock">--:--:--</div>
     <button class="icon-btn" onclick="toggleDark()">🌙</button>
@@ -278,7 +301,9 @@ const db  = getDatabase(app);
 /* ============================================================
    STATE & GLOBALS
    ============================================================ */
-let roomKey    = '';
+let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
+let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
+let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
 let state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
 let role       = 't1';
 let initBreaks = [];
@@ -287,44 +312,44 @@ let isSaving   = false;
 let unsubscribe = null;
 
 /* ============================================================
-   JOIN ROOM
-   MULTI-ROOM MANAGER
-   rooms = [{ code:'PROJECT1' }, { code:'PROJECT2' }, ...]
-   activeRoom = code ที่กำลังใช้งานอยู่
+   ROOM MANAGER
    ============================================================ */
-function joinRoom(){
-  const v = document.getElementById('room-inp').value.trim().toUpperCase();
-  if(!v){ document.getElementById('room-inp').focus(); return; }
-  let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
-  let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
-  let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
-  let dbRef      = null; // This line was missing a semicolon and was causing the error
-let unsubscribe = null;
-}
 function loadRooms(){
   try { rooms = JSON.parse(localStorage.getItem('sdq-rooms') || '[]'); } catch(e){ rooms=[]; }
 }
+
 function saveRooms(){
   localStorage.setItem('sdq-rooms', JSON.stringify(rooms));
 }
 
 function toggleRoomMenu(){
-  document.getElementById('room-menu').classList.toggle('hidden');
+  const menu = document.getElementById('room-menu');
+  if(menu) menu.classList.toggle('hidden');
 }
-// ปิด menu เมื่อคลิกที่อื่น
+
 document.addEventListener('click', e=>{
-  if(!document.getElementById('room-drop').contains(e.target))
-    document.getElementById('room-menu').classList.add('hidden');
+  const drop = document.getElementById('room-drop');
+  const menu = document.getElementById('room-menu');
+  if(drop && menu && !drop.contains(e.target)){
+    menu.classList.add('hidden');
+  }
 });
-  // ยกเลิก listener ห้องเก่าก่อน (ถ้ามี)
-  if(unsubscribe) unsubscribe();
+
 function addRoom(){
-  const inp = document.getElementById('rm-inp');
-  const code = inp.value.trim().toUpperCase();
+  let code = '';
+  const setupInp = document.getElementById('room-inp');
+  const menuInp = document.getElementById('rm-inp');
+  
+  if(setupInp && setupInp.value.trim()){
+    code = setupInp.value.trim().toUpperCase();
+  } else if(menuInp && menuInp.value.trim()){
+    code = menuInp.value.trim().toUpperCase();
+  }
+  
   if(!code) return;
   if(!rooms.find(r=>r.code===code)) rooms.push({ code });
   saveRooms();
-  inp.value = '';
+  if(menuInp) menuInp.value = '';
   switchRoom(code);
 }
 
@@ -334,56 +359,75 @@ function removeRoom(code, ev){
   saveRooms();
   if(activeRoom === code){
     if(rooms.length) switchRoom(rooms[0].code);
-    else { activeRoom=''; roomKey=''; document.getElementById('room-label').textContent='เลือกห้อง'; state={t2list:[],logs:[],roundIdx:0,mode:'rr'}; fullRender(); }
+    else { 
+      activeRoom=''; 
+      roomKey=''; 
+      const label = document.getElementById('room-label');
+      if(label) label.textContent='เลือกห้อง';
+      state={t2list:[],logs:[],roundIdx:0,mode:'rr'}; 
+      fullRender();
+    }
   }
   renderRoomMenu();
 }
 
 function switchRoom(code){
-  if(activeRoom === code){ document.getElementById('room-menu').classList.add('hidden'); return; }
+  if(activeRoom === code){ 
+    const menu = document.getElementById('room-menu');
+    if(menu) menu.classList.add('hidden');
+    return; 
+  }
 
-  roomKey = 'rooms/' + v;
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('room-label').textContent = '🏠 ' + v;
-  localStorage.setItem('sdq-last-room', v);
-  // ยกเลิก listener ห้องเก่า
   if(unsubscribe){ unsubscribe(); unsubscribe=null; }
 
   activeRoom = code;
   roomKey    = 'rooms/' + code;
   state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
-  document.getElementById('room-label').textContent = code;
-  document.getElementById('room-menu').classList.add('hidden');
+  
+  const label = document.getElementById('room-label');
+  if(label) label.textContent = code;
+  
+  const menu = document.getElementById('room-menu');
+  if(menu) menu.classList.add('hidden');
+  
   localStorage.setItem('sdq-active-room', code);
   setSyncStatus('loading');
 
   dbRef = ref(db, roomKey);
 
-  // Real-time listener — ทุกเครื่องได้รับข้อมูลพร้อมกันทันที
+  // Real-time listener
   unsubscribe = onValue(dbRef, snapshot=>{
     const d = snapshot.val();
-    if(d){ state = d; fullRender(); }
     if(d) state = d;
     fullRender();
     setSyncStatus('ok');
   }, err => {
     console.error(err);
     setSyncStatus('err');
-  }, err=>{ console.error(err); setSyncStatus('err'); });
+  });
 
   setDefaults();
   renderRoomMenu();
-  renderRoomTabs();
   fullRender();
 }
 
-document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
-document.getElementById('room-inp').addEventListener('input',   e=>{ e.target.value = e.target.value.toUpperCase(); });
-const lastRoom = localStorage.getItem('sdq-last-room');
-if(lastRoom) document.getElementById('room-inp').value = lastRoom;
+document.addEventListener('DOMContentLoaded', ()=>{
+  const inp = document.getElementById('room-inp');
+  if(inp){
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter') addRoom(); });
+    inp.addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase(); });
+    const lastRoom = localStorage.getItem('sdq-last-room');
+    if(lastRoom) inp.value = lastRoom;
+  }
+});
+
 function renderRoomMenu(){
   const el = document.getElementById('rm-list');
-  if(!rooms.length){ el.innerHTML='<div style="font-size:12px;color:var(--faint);padding:.3rem .5rem">ยังไม่มีห้อง</div>'; return; }
+  if(!el) return;
+  if(!rooms.length){ 
+    el.innerHTML='<div style="font-size:12px;color:var(--faint);padding:.3rem .5rem">ยังไม่มีห้อง</div>'; 
+    return; 
+  }
   el.innerHTML = rooms.map(r=>`
     <div class="rm-item ${r.code===activeRoom?'active':''}" onclick="switchRoom('${r.code}')">
       <span style="font-size:14px">${r.code===activeRoom?'●':'○'}</span>
@@ -392,27 +436,14 @@ function renderRoomMenu(){
     </div>`).join('');
 }
 
-function renderRoomTabs(){
-  const el = document.getElementById('room-tabs'); if(!el) return;
-  if(rooms.length <= 1){ el.innerHTML=''; return; }
-  el.innerHTML = rooms.map(r=>
-    `<button class="rtab ${r.code===activeRoom?'on':''}" onclick="switchRoom('${r.code}')">${r.code}</button>`
-  ).join('');
-}
-
-/* ============================================================
-   JOIN ROOM (initial load)
-   ============================================================ */
 function initRooms(){
   loadRooms();
   const last = localStorage.getItem('sdq-active-room');
-  // ถ้ามีห้องที่เคยใช้ → เข้าเลย
   if(last && rooms.find(r=>r.code===last)){
     switchRoom(last);
   } else if(rooms.length){
     switchRoom(rooms[0].code);
   } else {
-    // ยังไม่มีห้อง → prompt ให้ใส่ห้องแรก
     const code = (prompt('SD Queue\nใส่รหัสห้อง (Room Code) เช่น PROJECT1, SHIFT1') || '').trim().toUpperCase();
     if(code){ rooms.push({code}); saveRooms(); switchRoom(code); }
   }
@@ -437,13 +468,16 @@ function saveState(){
 function setSyncStatus(s){
   const dot = document.getElementById('sdot');
   const txt = document.getElementById('stxt');
+  if(!dot || !txt) return;
   if(s==='ok'){
-    dot.className='dot ok'; dot.style.background='';
+    dot.className='dot ok';
     txt.textContent='ซิงค์แล้ว';
   } else if(s==='err'){
-    dot.className='dot err'; txt.textContent='เชื่อมต่อไม่ได้';
+    dot.className='dot err'; 
+    txt.textContent='เชื่อมต่อไม่ได้';
   } else {
-    dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...';
+    dot.className='dot loading'; 
+    txt.textContent='กำลังเชื่อมต่อ...';
   }
 }
 
@@ -453,7 +487,16 @@ function setSyncStatus(s){
 function toM(t){ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; }
 function nowM(){ const n=new Date(); return n.getHours()*60+n.getMinutes(); }
 function fmtT(d){ return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
-function toggleDark(){ const e=document.documentElement; e.hasAttribute('data-dark')?(e.removeAttribute('data-dark'),localStorage.setItem('sd-dark','0')):(e.setAttribute('data-dark',''),localStorage.setItem('sd-dark','1')); }
+function toggleDark(){ 
+  const e=document.documentElement; 
+  if(e.hasAttribute('data-dark')){
+    e.removeAttribute('data-dark');
+    localStorage.setItem('sd-dark','0');
+  } else {
+    e.setAttribute('data-dark','');
+    localStorage.setItem('sd-dark','1');
+  }
+}
 if(localStorage.getItem('sd-dark')==='1') document.documentElement.setAttribute('data-dark','');
 
 function getStatus(t){
@@ -481,25 +524,31 @@ const ST={
    ============================================================ */
 function setRole(r){
   role=r;
-  document.getElementById('vt1').style.display=r==='t1'?'grid':'none';
-  document.getElementById('vadmin').style.display=r==='admin'?'grid':'none';
-  document.getElementById('rbtn-t1').className='seg-btn'+(r==='t1'?' on':'');
-  document.getElementById('rbtn-admin').className='seg-btn'+(r==='admin'?' on':'');
+  const vt1 = document.getElementById('vt1');
+  const vadmin = document.getElementById('vadmin');
+  const rbtn1 = document.getElementById('rbtn-t1');
+  const rbtn2 = document.getElementById('rbtn-admin');
+  
+  if(vt1) vt1.style.display=r==='t1'?'grid':'none';
+  if(vadmin) vadmin.style.display=r==='admin'?'grid':'none';
+  if(rbtn1) rbtn1.className='seg-btn'+(r==='t1'?' on':'');
+  if(rbtn2) rbtn2.className='seg-btn'+(r==='admin'?' on':'');
 }
 
 function setMode(m){
   state.mode = m;
-  document.getElementById('mbtn-rr').className='seg-btn mode-rr'+(m==='rr'?' on':'');
-  document.getElementById('mbtn-fair').className='seg-btn mode-fair'+(m==='fair'?' on':'');
+  const mbtn1 = document.getElementById('mbtn-rr');
+  const mbtn2 = document.getElementById('mbtn-fair');
+  if(mbtn1) mbtn1.className='seg-btn mode-rr'+(m==='rr'?' on':'');
+  if(mbtn2) mbtn2.className='seg-btn mode-fair'+(m==='fair'?' on':'');
   updateModeBanner();
   saveState();
 }
 
 function updateModeBanner(){
   const m = state.mode||'rr';
-  document.getElementById('mbtn-rr').className='seg-btn mode-rr'+(m==='rr'?' on':'');
-  document.getElementById('mbtn-fair').className='seg-btn mode-fair'+(m==='fair'?' on':'');
   const b = document.getElementById('mode-banner-t1');
+  if(!b) return;
   if(m==='rr'){
     b.className='mode-banner rr';
     b.innerHTML='🔄 <strong>วนคิว</strong> — วนตามลำดับ พอกลับจากเบรกรอถึงรอบตัวเอง';
@@ -515,46 +564,69 @@ function updateModeBanner(){
 function addInitBreak(){ initBreaks.push({s:'12:00',e:'13:00'}); renderInitBreaks(); }
 function removeInitBreak(i){ initBreaks.splice(i,1); renderInitBreaks(); }
 function renderInitBreaks(){
-  const el=document.getElementById('init-brks'); el.innerHTML='';
+  const el=document.getElementById('init-brks'); 
+  if(!el) return;
+  el.innerHTML='';
   initBreaks.forEach((b,i)=>{
-    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:5px';
+    const row=document.createElement('div'); 
+    row.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:5px';
     const is=mkTI(b.s, v=>{initBreaks[i].s=v});
     const ie=mkTI(b.e, v=>{initBreaks[i].e=v});
     const sep=mkSep();
-    const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕';
+    const del=document.createElement('button'); 
+    del.className='btn btn-xs btn-del'; 
+    del.textContent='✕';
     del.onclick=()=>removeInitBreak(i);
-    row.append(is,sep,ie,del); el.appendChild(row);
+    row.append(is,sep,ie,del); 
+    el.appendChild(row);
   });
 }
 
 function mkTI(val, onChange){
   const inp=document.createElement('input');
-  inp.type='time'; inp.className='ti'; inp.value=val||'';
-  inp.lang='en-GB'; // force 24hr in all browsers
-  inp.addEventListener('change',()=>onChange(inp.value)); return inp;
+  inp.type='time'; 
+  inp.className='ti'; 
+  inp.value=val||'';
+  inp.lang='en-GB';
+  inp.addEventListener('change',()=>onChange(inp.value)); 
+  return inp;
 }
-function mkSep(){ const s=document.createElement('span'); s.className='sep'; s.textContent='–'; return s; }
+function mkSep(){ 
+  const s=document.createElement('span'); 
+  s.className='sep'; 
+  s.textContent='–'; 
+  return s; 
+}
 
 /* ============================================================
    ADD / REMOVE T2
    ============================================================ */
 function addT2(){
-  const name=document.getElementById('t2name').value.trim();
-  const start=document.getElementById('t2s').value;
-  const end=document.getElementById('t2e').value;
-  if(!name){ document.getElementById('t2name').focus(); return; }
+  const nameEl = document.getElementById('t2name');
+  const startEl = document.getElementById('t2s');
+  const endEl = document.getElementById('t2e');
+  if(!nameEl || !startEl || !endEl) return;
+  
+  const name=nameEl.value.trim();
+  const start=startEl.value;
+  const end=endEl.value;
+  if(!name){ nameEl.focus(); return; }
   if(!state.t2list) state.t2list=[];
   state.t2list.push({id:Date.now()+'',name,startTime:start,endTime:end,breaks:[...initBreaks.map(b=>({...b}))],tickets:[],_prev:''});
-  document.getElementById('t2name').value='';
-  initBreaks=[]; renderInitBreaks();
+  nameEl.value='';
+  initBreaks=[]; 
+  renderInitBreaks();
   addLog('เพิ่ม T2: '+name+' ('+start+'–'+end+')','i');
-  saveState(); fullRender();
+  saveState(); 
+  fullRender();
 }
+
 function removeT2(ti){
   addLog('ลบ T2: '+state.t2list[ti].name,'w');
   state.t2list.splice(ti,1);
   if((state.roundIdx||0)>=state.t2list.length) state.roundIdx=0;
-  saveState(); fullRender();
+  saveState(); 
+  fullRender();
 }
 
 /* ============================================================
@@ -565,32 +637,44 @@ function addBreak(ti){
   if(!state.t2list[ti].breaks) state.t2list[ti].breaks=[];
   state.t2list[ti].breaks.push({s:'12:00',e:'13:00'});
   saveState();
-  const c=document.getElementById('brkc-'+ti); if(c) appendBrkRow(c,ti,state.t2list[ti].breaks.length-1);
+  const c=document.getElementById('brkc-'+ti); 
+  if(c) appendBrkRow(c,ti,state.t2list[ti].breaks.length-1);
 }
 function removeBreak(ti,bi){
   state.t2list[ti].breaks.splice(bi,1);
-  saveState(); rebuildBrk(ti);
+  saveState(); 
+  rebuildBrk(ti);
 }
 function updateWT(ti,f,v){ state.t2list[ti][f]=v; saveState(); }
 function appendBrkRow(cont,ti,bi){
   const b=state.t2list[ti].breaks[bi];
-  const row=document.createElement('div'); row.className='brow'; row.id='br-'+ti+'-'+bi;
+  const row=document.createElement('div'); 
+  row.className='brow'; 
+  row.id='br-'+ti+'-'+bi;
   const is=mkTI(b.s,v=>brkChange(ti,bi,'s',v));
   const ie=mkTI(b.e,v=>brkChange(ti,bi,'e',v));
-  const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕';
+  const del=document.createElement('button'); 
+  del.className='btn btn-xs btn-del'; 
+  del.textContent='✕';
   del.onclick=()=>removeBreak(ti,bi);
-  row.append(is,mkSep(),ie,del); cont.appendChild(row);
+  row.append(is,mkSep(),ie,del); 
+  cont.appendChild(row);
 }
 function rebuildBrk(ti){
-  const c=document.getElementById('brkc-'+ti); if(!c)return;
-  c.innerHTML=''; (state.t2list[ti].breaks||[]).forEach((_,bi)=>appendBrkRow(c,ti,bi));
+  const c=document.getElementById('brkc-'+ti); 
+  if(!c)return;
+  c.innerHTML=''; 
+  (state.t2list[ti].breaks||[]).forEach((_,bi)=>appendBrkRow(c,ti,bi));
 }
 
 /* ============================================================
    ASSIGN — supports both modes
    ============================================================ */
 function assignTicket(){
-  const ticket=document.getElementById('ticketnum').value.trim();
+  const ticketEl = document.getElementById('ticketnum');
+  if(!ticketEl) return;
+  
+  const ticket=ticketEl.value.trim();
   if(!ticket){ showFb('กรุณาใส่เลข Ticket','w'); return; }
   if(!state.t2list||!state.t2list.length){ showFb('ยังไม่มี T2 ในคิว','d'); return; }
 
@@ -601,7 +685,6 @@ function assignTicket(){
   const mode=state.mode||'rr';
 
   if(mode==='rr'){
-    // Round Robin — วนตามลำดับคิว
     const n=state.t2list.length;
     const start=(state.roundIdx||0)%n;
     for(let i=0;i<n;i++){
@@ -609,13 +692,11 @@ function assignTicket(){
       if(getStatus(state.t2list[idx])==='active'){ chosen=state.t2list[idx]; state.roundIdx=idx+1; break; }
     }
   } else {
-    // Fair — มอบให้คนที่รับน้อยสุด (Round Robin ถ้าเท่ากัน)
     const min=Math.min(...avail.map(t=>t.tickets.length));
     const cands=avail.filter(t=>t.tickets.length===min);
     if(cands.length===1){
       chosen=cands[0];
     } else {
-      // หา idx ของ cands ใน t2list แล้ววน
       const n=state.t2list.length;
       const start=(state.roundIdx||0)%n;
       for(let i=0;i<n;i++){
@@ -628,10 +709,9 @@ function assignTicket(){
   if(!chosen){ showFb('ไม่มี T2 ที่พร้อมรับงานขณะนี้','d'); return; }
   if(!chosen.tickets) chosen.tickets=[];
   chosen.tickets.push(ticket);
-  document.getElementById('ticketnum').value='';
-  document.getElementById('ticketnum').focus();
+  ticketEl.value='';
+  ticketEl.focus();
 
-  // หาคนถัดไปในคิว
   let nextName='–';
   if(mode==='rr'){
     const n=state.t2list.length;
@@ -644,7 +724,6 @@ function assignTicket(){
     if(avail2.length){
       const mn=Math.min(...avail2.map(t=>t.tickets.length));
       const nx=avail2.filter(t=>t.tickets.length===mn);
-      // ถ้า chosen ยังน้อยสุดให้ chosen อีก
       if(chosen.tickets.length<=mn) nextName=chosen.name;
       else nextName=nx[0]?.name||'–';
     } else { nextName=chosen.name; }
@@ -652,26 +731,39 @@ function assignTicket(){
 
   addLog('Ticket '+ticket+' → '+chosen.name,'s');
   showFb('✓ มอบหมาย '+ticket+' ให้ '+chosen.name+' | ถัดไป: '+nextName,'s');
-  saveState(); fullRender();
+  saveState(); 
+  fullRender();
 }
 
 function showFb(msg,type){
   const f=document.getElementById('fb');
-  f.textContent=msg; f.className='fb show '+({s:'s',w:'w',d:'d'}[type]||'s');
-  clearTimeout(f._t); f._t=setTimeout(()=>f.classList.remove('show'),4000);
+  if(!f) return;
+  f.textContent=msg; 
+  f.className='fb show '+({s:'s',w:'w',d:'d'}[type]||'s');
+  clearTimeout(f._t); 
+  f._t=setTimeout(()=>f.classList.remove('show'),4000);
 }
 
 /* ============================================================
    LOG
    ============================================================ */
-function addLog(msg,type){ if(!state.logs)state.logs=[]; state.logs.unshift({msg,type,time:fmtT(new Date())}); if(state.logs.length>80)state.logs.pop(); }
-function clearLog(){ state.logs=[]; saveState(); renderLogs(); }
+function addLog(msg,type){ 
+  if(!state.logs)state.logs=[]; 
+  state.logs.unshift({msg,type,time:fmtT(new Date())}); 
+  if(state.logs.length>80)state.logs.pop(); 
+}
+function clearLog(){ 
+  state.logs=[]; 
+  saveState(); 
+  renderLogs(); 
+}
 
 /* ============================================================
    QUEUE ORDER
    ============================================================ */
 function getQueueOrder(){
-  const order={}, n=(state.t2list||[]).length; let pos=1;
+  const order={}, n=(state.t2list||[]).length; 
+  let pos=1;
   for(let i=0;i<n;i++){
     const idx=((state.roundIdx||0)+i)%n;
     if(getStatus(state.t2list[idx])==='active') order[idx]=pos++;
@@ -684,15 +776,16 @@ function getQueueOrder(){
    ============================================================ */
 function fullRender(){
   updateModeBanner();
-  renderRoomTabs();
   renderGrid('g-t1', false);
   renderGrid('g-admin', true);
-  renderStats('stats'); renderStats('stats-admin');
+  renderStats('stats'); 
+  renderStats('stats-admin');
   renderLogs();
 }
 
 function renderGrid(gid, isAdmin){
-  const grid=document.getElementById(gid); if(!grid)return;
+  const grid=document.getElementById(gid); 
+  if(!grid)return;
   const list=state.t2list||[];
   if(!list.length){ grid.innerHTML='<div class="empty">ยังไม่มี T2<br>เพิ่มได้ที่แท็บ Admin</div>'; return; }
   const qOrder=getQueueOrder();
@@ -700,19 +793,33 @@ function renderGrid(gid, isAdmin){
   grid.innerHTML='';
   list.forEach((t,ti)=>{
     const st=getStatus(t);
-    const card=document.createElement('div'); card.className='t2c '+st; card.id=gid+'-c-'+ti;
+    const card=document.createElement('div'); 
+    card.className='t2c '+st; 
+    card.id=gid+'-c-'+ti;
 
-    // head
-    const hd=document.createElement('div'); hd.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:.3rem';
-    const nm=document.createElement('div'); nm.className='t2n'; nm.textContent=t.name;
-    const rhs=document.createElement('div'); rhs.style.cssText='display:flex;gap:4px;align-items:center;flex-shrink:0';
-    const bdg=document.createElement('span'); bdg.id=gid+'-b-'+ti; bdg.innerHTML=ST[st]||'';
+    const hd=document.createElement('div'); 
+    hd.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:.3rem';
+    const nm=document.createElement('div'); 
+    nm.className='t2n'; 
+    nm.textContent=t.name;
+    const rhs=document.createElement('div'); 
+    rhs.style.cssText='display:flex;gap:4px;align-items:center;flex-shrink:0';
+    const bdg=document.createElement('span'); 
+    bdg.id=gid+'-b-'+ti; 
+    bdg.innerHTML=ST[st]||'';
     rhs.append(bdg);
-    if(isAdmin){ const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕'; del.onclick=()=>removeT2(ti); rhs.append(del); }
-    hd.append(nm,rhs); card.appendChild(hd);
+    if(isAdmin){ 
+      const del=document.createElement('button'); 
+      del.className='btn btn-xs btn-del'; 
+      del.textContent='✕'; 
+      del.onclick=()=>removeT2(ti); 
+      rhs.append(del); 
+    }
+    hd.append(nm,rhs); 
+    card.appendChild(hd);
 
-    // time
-    const tr=document.createElement('div'); tr.className='t2t';
+    const tr=document.createElement('div'); 
+    tr.className='t2t';
     if(isAdmin){
       tr.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:.35rem';
       const wis=mkTI(t.startTime, v=>updateWT(ti,'startTime',v));
@@ -724,45 +831,77 @@ function renderGrid(gid, isAdmin){
     }
     card.appendChild(tr);
 
-    // queue / fair badge
-    const qb=document.createElement('div'); qb.id=gid+'-q-'+ti; qb.style.cssText='margin-bottom:.3rem;min-height:18px';
+    const qb=document.createElement('div'); 
+    qb.id=gid+'-q-'+ti; 
+    qb.style.cssText='margin-bottom:.3rem;min-height:18px';
     if(mode==='rr'){
       const pos=qOrder[ti];
-      if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+      if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 ถัดไป</span>';
       else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
     } else {
       const avail2=(state.t2list||[]).filter(x=>getStatus(x)==='active');
       if(avail2.length && st==='active'){
         const mn=Math.min(...avail2.map(x=>x.tickets.length));
-        if((t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+        if((t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ น้อยสุด</span>';
       }
     }
     card.appendChild(qb);
 
-    // count
-    const cw=document.createElement('div'); cw.style.cssText='display:flex;align-items:baseline;gap:6px';
-    const cnt=document.createElement('div'); cnt.className='t2cnt'; cnt.id=gid+'-cnt-'+ti; cnt.textContent=(t.tickets||[]).length;
-    const cl=document.createElement('div'); cl.className='t2cl'; cl.textContent='tickets';
-    cw.append(cnt,cl); card.appendChild(cw);
+    const cw=document.createElement('div'); 
+    cw.style.cssText='display:flex;align-items:baseline;gap:6px';
+    const cnt=document.createElement('div'); 
+    cnt.className='t2cnt'; 
+    cnt.id=gid+'-cnt-'+ti; 
+    cnt.textContent=(t.tickets||[]).length;
+    const cl=document.createElement('div'); 
+    cl.className='t2cl'; 
+    cl.textContent='tickets';
+    cw.append(cnt,cl); 
+    card.appendChild(cw);
 
-    // chips
-    const chips=document.createElement('div'); chips.className='chips'; chips.id=gid+'-ch-'+ti;
-    (t.tickets||[]).slice(-4).forEach(k=>{ const c=document.createElement('span'); c.className='chip'; c.textContent=k; chips.appendChild(c); });
-    if((t.tickets||[]).length>4){ const x=document.createElement('span'); x.style.cssText='font-size:11px;color:var(--faint)'; x.textContent='+'+ ((t.tickets||[]).length-4); chips.appendChild(x); }
+    const chips=document.createElement('div'); 
+    chips.className='chips'; 
+    chips.id=gid+'-ch-'+ti;
+    (t.tickets||[]).slice(-4).forEach(k=>{ 
+      const c=document.createElement('span'); 
+      c.className='chip'; 
+      c.textContent=k; 
+      chips.appendChild(c); 
+    });
+    if((t.tickets||[]).length>4){ 
+      const x=document.createElement('span'); 
+      x.style.cssText='font-size:11px;color:var(--faint)'; 
+      x.textContent='+'+ ((t.tickets||[]).length-4); 
+      chips.appendChild(x);
+    }
     card.appendChild(chips);
 
-    // breaks (admin editable)
     if(isAdmin){
-      const bs=document.createElement('div'); bs.className='bsec';
-      const bl=document.createElement('div'); bl.className='blbl'; bl.textContent='ช่วงพักเบรก'; bs.appendChild(bl);
-      const bc=document.createElement('div'); bc.id='brkc-'+ti;
+      const bs=document.createElement('div'); 
+      bs.className='bsec';
+      const bl=document.createElement('div'); 
+      bl.className='blbl'; 
+      bl.textContent='ช่วงพักเบรก'; 
+      bs.appendChild(bl);
+      const bc=document.createElement('div'); 
+      bc.id='brkc-'+ti;
       (t.breaks||[]).forEach((_,bi)=>appendBrkRow(bc,ti,bi));
       bs.appendChild(bc);
-      const ab=document.createElement('button'); ab.className='add-brk'; ab.textContent='+ เพิ่มช่วงเบรก'; ab.onclick=()=>addBreak(ti);
-      bs.appendChild(ab); card.appendChild(bs);
+      const ab=document.createElement('button'); 
+      ab.className='add-brk'; 
+      ab.textContent='+ เพิ่มช่วงเบรก'; 
+      ab.onclick=()=>addBreak(ti);
+      bs.appendChild(ab); 
+      card.appendChild(bs);
     } else if((t.breaks||[]).length){
-      const bpills=document.createElement('div'); bpills.style.cssText='display:flex;flex-wrap:wrap;gap:3px;margin-top:.4rem';
-      (t.breaks||[]).forEach(b=>{ const p=document.createElement('span'); p.style.cssText='font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px'; p.textContent='☕ '+b.s+'–'+b.e; bpills.appendChild(p); });
+      const bpills=document.createElement('div'); 
+      bpills.style.cssText='display:flex;flex-wrap:wrap;gap:3px;margin-top:.4rem';
+      (t.breaks||[]).forEach(b=>{ 
+        const p=document.createElement('span'); 
+        p.style.cssText='font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px'; 
+        p.textContent=b.s+' – '+b.e; 
+        bpills.appendChild(p); 
+      });
       card.appendChild(bpills);
     }
     grid.appendChild(card);
@@ -770,7 +909,8 @@ function renderGrid(gid, isAdmin){
 }
 
 function renderStats(id){
-  const el=document.getElementById(id); if(!el)return;
+  const el=document.getElementById(id); 
+  if(!el)return;
   const list=state.t2list||[];
   const avail=list.filter(t=>getStatus(t)==='active');
   const total=list.reduce((s,t)=>s+(t.tickets||[]).length,0);
@@ -782,7 +922,8 @@ function renderStats(id){
 
 function renderLogs(){
   ['log-t1','log-admin'].forEach(id=>{
-    const el=document.getElementById(id); if(!el)return;
+    const el=document.getElementById(id); 
+    if(!el)return;
     const logs=state.logs||[];
     if(!logs.length){ el.innerHTML='<div class="empty">ยังไม่มีรายการ</div>'; return; }
     el.innerHTML=logs.map(l=>`<div class="li"><span class="lt">${l.time}</span><span class="lm ${l.type||''}">${l.msg}</span></div>`).join('');
@@ -824,11 +965,11 @@ function patchCards(){
       if(qb){
         if(mode==='rr'){
           const pos=qOrder[ti];
-          if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+          if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 ถัดไป</span>';
           else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
           else qb.innerHTML='';
         } else {
-          if(st==='active'&&(t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+          if(st==='active'&&(t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ น้อยสุด</span>';
           else qb.innerHTML='';
         }
       }
@@ -840,36 +981,42 @@ function patchCards(){
    DEFAULTS
    ============================================================ */
 function setDefaults(){
+  const t2sEl = document.getElementById('t2s');
+  const t2eEl = document.getElementById('t2e');
+  if(!t2sEl || !t2eEl) return;
+  
   const nd=new Date();
-  document.getElementById('t2s').value=String(nd.getHours()).padStart(2,'0')+':'+String(nd.getMinutes()).padStart(2,'0');
+  t2sEl.value=String(nd.getHours()).padStart(2,'0')+':'+String(nd.getMinutes()).padStart(2,'0');
   const ne=new Date(nd.getTime()+8*3600e3);
-  document.getElementById('t2e').value=String(ne.getHours()).padStart(2,'0')+':'+String(ne.getMinutes()).padStart(2,'0');
+  t2eEl.value=String(ne.getHours()).padStart(2,'0')+':'+String(ne.getMinutes()).padStart(2,'0');
 }
 
 /* ============================================================
    TICK
    ============================================================ */
 setInterval(()=>{
-  document.getElementById('clock').textContent=fmtT(new Date());
+  const clock = document.getElementById('clock');
+  if(clock) clock.textContent=fmtT(new Date());
   checkStatuses();
   patchCards();
-  renderStats('stats'); renderStats('stats-admin');
+  renderStats('stats'); 
+  renderStats('stats-admin');
 }, 1000);
 
-document.getElementById('clock').textContent=fmtT(new Date());
+const clockEl = document.getElementById('clock');
+if(clockEl) clockEl.textContent=fmtT(new Date());
 renderInitBreaks();
 setDefaults();
 initRooms();
 
-/* expose ฟังก์ชันที่ HTML ใช้ผ่าน onclick= ให้ใช้งานได้จาก module scope */
+/* expose ฟังก์ชันที่ HTML ใช้ผ่าน onclick= */
 Object.assign(window, {
-  joinRoom, setRole, setMode, toggleDark,
-  joinRoom: addRoom, setRole, setMode, toggleDark,
+  setRole, setMode, toggleDark,
+  addRoom, removeRoom, switchRoom, toggleRoomMenu,
   addT2, removeT2,
   addInitBreak, removeInitBreak,
   addBreak, removeBreak, brkChange, updateWT,
   assignTicket, clearLog,
-  toggleRoomMenu, addRoom, removeRoom, switchRoom,
 });
 </script>
 </body>
