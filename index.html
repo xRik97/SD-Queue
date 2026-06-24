@@ -6,6 +6,14 @@
 <title>SD Queue — Service Desk</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-app-compat.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-database-compat.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":      "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js",
+    "firebase/database": "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js"
+  }
+}
+</script>
 <style>
 :root{
   --bg:#F5F4F0;--surface:#FFFFFF;--border:#E4E2DC;--border-s:#C8C5BC;
@@ -247,156 +255,199 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp }                          from 'firebase/app';
+import { getDatabase, ref, set, onValue }         from 'firebase/database';
+
 /* ============================================================
-   FIREBASE CONFIG — using a free public test project
-   Users can replace with their own Firebase project
+   Firebase config จาก console.firebase.google.com
    ============================================================ */
-const FB_CONFIG = {
-    apiKey: "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
-    authDomain: "sd-queue.firebaseapp.com",
-    databaseURL: "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "sd-queue",
-    storageBucket: "sd-queue.firebasestorage.app",
-    messagingSenderId: "719467952102",
-    appId: "1:719467952102:web:aad30d55ace17b13d0c827",
-    measurementId: "G-XHS3WM8251"
+const firebaseConfig = {
+  apiKey:            "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
+  authDomain:        "sd-queue.firebaseapp.com",
+  databaseURL:       "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "sd-queue",
+  storageBucket:     "sd-queue.firebasestorage.app",
+  messagingSenderId: "719467952102",
+  appId:             "1:719467952102:web:aad30d55ace17b13d0c827",
 };
 
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
 /* ============================================================
-   FALLBACK: use BroadcastChannel + localStorage for same-device
-   Real multi-device needs actual Firebase credentials
-   We'll use a simulated sync via the Anthropic storage API
-   as the shared backend (polling every 1.5s)
+   STATE & GLOBALS
    ============================================================ */
-
-let roomKey = '';
-let state = { t2list:[], logs:[], roundIdx:0, mode:'rr', version:0 };
-let role = 't1';
+let roomKey    = '';
+let state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
+let role       = 't1';
 let initBreaks = [];
-let isSaving = false;
-let myVersion = 0;
-let db = null; // Firebase DB ref
+let dbRef      = null;
+let isSaving   = false;
+let unsubscribe = null;
 
-// BroadcastChannel for same-browser sync (instant)
-let bc = null;
-
+/* ============================================================
+   JOIN ROOM
+   MULTI-ROOM MANAGER
+   rooms = [{ code:'PROJECT1' }, { code:'PROJECT2' }, ...]
+   activeRoom = code ที่กำลังใช้งานอยู่
+   ============================================================ */
 function joinRoom(){
   const v = document.getElementById('room-inp').value.trim().toUpperCase();
   if(!v){ document.getElementById('room-inp').focus(); return; }
-  roomKey = 'sdq-' + v;
+let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
+let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
+let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
+let dbRef      = null;
+let unsubscribe = null;
+
+function loadRooms(){
+  try { rooms = JSON.parse(localStorage.getItem('sdq-rooms') || '[]'); } catch(e){ rooms=[]; }
+}
+function saveRooms(){
+  localStorage.setItem('sdq-rooms', JSON.stringify(rooms));
+}
+
+function toggleRoomMenu(){
+  document.getElementById('room-menu').classList.toggle('hidden');
+}
+// ปิด menu เมื่อคลิกที่อื่น
+document.addEventListener('click', e=>{
+  if(!document.getElementById('room-drop').contains(e.target))
+    document.getElementById('room-menu').classList.add('hidden');
+});
+
+  // ยกเลิก listener ห้องเก่าก่อน (ถ้ามี)
+  if(unsubscribe) unsubscribe();
+function addRoom(){
+  const inp = document.getElementById('rm-inp');
+  const code = inp.value.trim().toUpperCase();
+  if(!code) return;
+  if(!rooms.find(r=>r.code===code)) rooms.push({ code });
+  saveRooms();
+  inp.value = '';
+  switchRoom(code);
+}
+
+function removeRoom(code, ev){
+  ev.stopPropagation();
+  rooms = rooms.filter(r=>r.code!==code);
+  saveRooms();
+  if(activeRoom === code){
+    if(rooms.length) switchRoom(rooms[0].code);
+    else { activeRoom=''; roomKey=''; document.getElementById('room-label').textContent='เลือกห้อง'; state={t2list:[],logs:[],roundIdx:0,mode:'rr'}; fullRender(); }
+  }
+  renderRoomMenu();
+}
+
+function switchRoom(code){
+  if(activeRoom === code){ document.getElementById('room-menu').classList.add('hidden'); return; }
+
+  roomKey = 'rooms/' + v;
   document.getElementById('setup').style.display = 'none';
   document.getElementById('room-label').textContent = '🏠 ' + v;
   localStorage.setItem('sdq-last-room', v);
-  initSync();
+  // ยกเลิก listener ห้องเก่า
+  if(unsubscribe){ unsubscribe(); unsubscribe=null; }
+
+  activeRoom = code;
+  roomKey    = 'rooms/' + code;
+  state      = { t2list:[], logs:[], roundIdx:0, mode:'rr' };
+  document.getElementById('room-label').textContent = code;
+  document.getElementById('room-menu').classList.add('hidden');
+  localStorage.setItem('sdq-active-room', code);
+  setSyncStatus('loading');
+
+  dbRef = ref(db, roomKey);
+
+  // Real-time listener — ทุกเครื่องได้รับข้อมูลพร้อมกันทันที
+  unsubscribe = onValue(dbRef, snapshot => {
+  unsubscribe = onValue(dbRef, snapshot=>{
+    const d = snapshot.val();
+    if(d){ state = d; fullRender(); }
+    if(d) state = d;
+    fullRender();
+    setSyncStatus('ok');
+  }, err => {
+    console.error(err);
+    setSyncStatus('err');
+  });
+  }, err=>{ console.error(err); setSyncStatus('err'); });
+
   setDefaults();
+  renderRoomMenu();
+  renderRoomTabs();
   fullRender();
 }
 
 document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
-document.getElementById('room-inp').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase(); });
-
-// Pre-fill last room
+document.getElementById('room-inp').addEventListener('input',   e=>{ e.target.value = e.target.value.toUpperCase(); });
 const lastRoom = localStorage.getItem('sdq-last-room');
 if(lastRoom) document.getElementById('room-inp').value = lastRoom;
+function renderRoomMenu(){
+  const el = document.getElementById('rm-list');
+  if(!rooms.length){ el.innerHTML='<div style="font-size:12px;color:var(--faint);padding:.3rem .5rem">ยังไม่มีห้อง</div>'; return; }
+  el.innerHTML = rooms.map(r=>`
+    <div class="rm-item ${r.code===activeRoom?'active':''}" onclick="switchRoom('${r.code}')">
+      <span style="font-size:14px">${r.code===activeRoom?'●':'○'}</span>
+      <span class="rm-name">${r.code}</span>
+      <button class="rm-del" onclick="removeRoom('${r.code}',event)" title="ลบห้อง">✕</button>
+    </div>`).join('');
+}
+
+function renderRoomTabs(){
+  const el = document.getElementById('room-tabs'); if(!el) return;
+  if(rooms.length <= 1){ el.innerHTML=''; return; }
+  el.innerHTML = rooms.map(r=>
+    `<button class="rtab ${r.code===activeRoom?'on':''}" onclick="switchRoom('${r.code}')">${r.code}</button>`
+  ).join('');
+}
 
 /* ============================================================
-   SYNC ENGINE
-   Primary: window.storage (Anthropic shared storage, works in Artifact)
-   Fallback: localStorage + BroadcastChannel (same-device)
+   JOIN ROOM (initial load)
    ============================================================ */
-async function initSync(){
-  setSyncStatus('loading');
-
-  // BroadcastChannel for instant same-device/tab sync
-  try {
-    bc = new BroadcastChannel(roomKey);
-    bc.onmessage = (e) => {
-      const d = e.data;
-      if(d && d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    };
-  } catch(e) {}
-
-  // Load initial state
-  await loadState();
-  setSyncStatus('ok');
-
-  // Poll every 1.5s for cross-device sync
-  setInterval(syncPoll, 1500);
-}
-
-async function syncPoll(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      if(d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    }
-    setSyncStatus('ok');
-  } catch(e) {
-    // Fallback to localStorage
-    try {
-      const raw = localStorage.getItem(roomKey);
-      if(raw){
-        const d = JSON.parse(raw);
-        if(d.version > myVersion){ state=d; myVersion=d.version; fullRender(); }
-      }
-    } catch(e2){}
-    setSyncStatus('warn');
+function initRooms(){
+  loadRooms();
+  const last = localStorage.getItem('sdq-active-room');
+  // ถ้ามีห้องที่เคยใช้ → เข้าเลย
+  if(last && rooms.find(r=>r.code===last)){
+    switchRoom(last);
+  } else if(rooms.length){
+    switchRoom(rooms[0].code);
+  } else {
+    // ยังไม่มีห้อง → prompt ให้ใส่ห้องแรก
+    const code = (prompt('SD Queue\nใส่รหัสห้อง (Room Code) เช่น PROJECT1, SHIFT1') || '').trim().toUpperCase();
+    if(code){ rooms.push({code}); saveRooms(); switchRoom(code); }
   }
+  renderRoomMenu();
 }
 
-async function loadState(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      state = d;
-      myVersion = d.version || 0;
-    }
-  } catch(e) {
-    const raw = localStorage.getItem(roomKey);
-    if(raw) try { state = JSON.parse(raw); myVersion = state.version||0; } catch(e2){}
-  }
-}
-
-async function saveState(){
-  if(isSaving) return;
+/* ============================================================
+   SAVE — เขียน Firebase → listener push กลับทุกเครื่องอัตโนมัติ
+   ============================================================ */
+function saveState(){
+  if(isSaving || !dbRef) return;
   isSaving = true;
-  myVersion = (myVersion||0) + 1;
-  state.version = myVersion;
-  const payload = JSON.stringify(state);
-
-  // BroadcastChannel (instant for same device)
-  try { if(bc) bc.postMessage(state); } catch(e){}
-
-  // localStorage fallback
-  try { localStorage.setItem(roomKey, payload); } catch(e){}
-
-  // Shared storage (cross-device)
-  try {
-    await window.storage.set(roomKey, payload, true);
-    setSyncStatus('ok');
-  } catch(e) {
-    setSyncStatus('warn');
-  }
-  isSaving = false;
+  set(dbRef, state)
+    .then(()  => setSyncStatus('ok'))
+    .catch(e  => { console.error(e); setSyncStatus('err'); })
+    .finally(()=> { isSaving = false; });
 }
 
+/* ============================================================
+   SYNC STATUS INDICATOR
+   ============================================================ */
 function setSyncStatus(s){
   const dot = document.getElementById('sdot');
   const txt = document.getElementById('stxt');
-  if(s==='ok'){ dot.className='dot ok'; txt.textContent='ซิงค์แล้ว'; }
-  else if(s==='warn'){ dot.className='dot'; txt.textContent='ซิงค์จำกัด (อุปกรณ์เดียวกัน)'; dot.style.background='var(--amber)'; }
-  else { dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...'; }
+  if(s==='ok'){
+    dot.className='dot ok'; dot.style.background='';
+    txt.textContent='ซิงค์แล้ว';
+  } else if(s==='err'){
+    dot.className='dot err'; txt.textContent='เชื่อมต่อไม่ได้';
+  } else {
+    dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...';
+  }
 }
 
 /* ============================================================
@@ -481,7 +532,8 @@ function renderInitBreaks(){
 
 function mkTI(val, onChange){
   const inp=document.createElement('input');
-  inp.type='time'; inp.className='ti'; inp.value=val||''; inp.lang='th';
+  inp.type='time'; inp.className='ti'; inp.value=val||'';
+  inp.lang='en-GB'; // force 24hr in all browsers
   inp.addEventListener('change',()=>onChange(inp.value)); return inp;
 }
 function mkSep(){ const s=document.createElement('span'); s.className='sep'; s.textContent='–'; return s; }
@@ -635,6 +687,7 @@ function getQueueOrder(){
    ============================================================ */
 function fullRender(){
   updateModeBanner();
+  renderRoomTabs();
   renderGrid('g-t1', false);
   renderGrid('g-admin', true);
   renderStats('stats'); renderStats('stats-admin');
@@ -808,6 +861,19 @@ setInterval(()=>{
 
 document.getElementById('clock').textContent=fmtT(new Date());
 renderInitBreaks();
+setDefaults();
+initRooms();
+
+/* expose ฟังก์ชันที่ HTML ใช้ผ่าน onclick= ให้ใช้งานได้จาก module scope */
+Object.assign(window, {
+  joinRoom, setRole, setMode, toggleDark,
+  joinRoom: addRoom, setRole, setMode, toggleDark,
+  addT2, removeT2,
+  addInitBreak, removeInitBreak,
+  addBreak, removeBreak, brkChange, updateWT,
+  assignTicket, clearLog,
+  toggleRoomMenu, addRoom, removeRoom, switchRoom,
+});
 </script>
 </body>
 </html>
