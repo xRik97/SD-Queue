@@ -37,7 +37,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
 .dot.ok{animation:pulse 2s infinite}.dot.err{background:var(--red);animation:none}.dot.loading{background:var(--amber);animation:pulse .8s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--rs);width:32px;height:32px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:15px}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--rs);width:32px;height:32px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
 .icon-btn:hover{background:var(--bg)}
 
 /* TOPBAR (role + mode) */
@@ -63,12 +63,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;
 
 /* FORM */
 .lbl{font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px}
-input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
+input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s}
 input[type=time]{font-variant-numeric:tabular-nums}
 input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .fp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mb{margin-bottom:.75rem}
-.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border-s);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);transition:all .12s;white-space:nowrap;font-family:inherit}
+.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border-s);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);transition:all .12s;white-space:nowrap}
 .btn:hover{background:var(--bg)}.btn:active{transform:scale(.98)}
 .btn-p{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-p:hover{opacity:.88}
 .btn-full{width:100%}
@@ -143,7 +143,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .modal{background:var(--surface);border-radius:var(--r);padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
 .modal h2{font-size:18px;font-weight:700;margin-bottom:.5rem}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
-.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--accent);cursor:pointer}
+.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--text)}
 </style>
 </head>
 <body>
@@ -152,11 +152,11 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 <div class="overlay" id="setup">
   <div class="modal">
     <h2>SD Queue 🎫</h2>
-    <p>ใส่รหัสห้องเดียวกันทุกเครื่อง เพื่อซิงค์ข้อมูลร่วมกัน real-time</p>
+    <p>ใส่รหัสห้องเดียวกันทุกเครื่อง เพื่อซิงค์ข้อมูลร่วมกัน real-time ผ่าน Firebase</p>
     <div class="mb"><label class="lbl">รหัสห้อง (Room Code)</label>
       <input type="text" id="room-inp" placeholder="เช่น SHIFT1, MORNING, ABC123" style="font-size:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase" maxlength="12" /></div>
     <button class="btn btn-p btn-full" onclick="joinRoom()" style="padding:10px">เข้าห้อง →</button>
-    <p style="font-size:11px;color:var(--faint);margin-top:.75rem;text-align:center">ทุกคนที่ใช้รหัสเดียวกันจะเห็นข้อมูลเดียวกัน</p>
+    <p style="font-size:11px;color:var(--faint);margin-top:.75rem;text-align:center">ทุกคนที่ใช้รหัสเดียวกันจะเห็นข้อมูลเดียวกัน ✨</p>
   </div>
 </div>
 
@@ -249,10 +249,9 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 
 <script>
 /* ============================================================
-   FIREBASE CONFIG — using a free public test project
-   Users can replace with their own Firebase project
+   FIREBASE CONFIG
    ============================================================ */
-const FB_CONFIG = {
+const firebaseConfig = {
     apiKey: "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
     authDomain: "sd-queue.firebaseapp.com",
     databaseURL: "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -263,28 +262,22 @@ const FB_CONFIG = {
     measurementId: "G-XHS3WM8251"
 };
 
-/* ============================================================
-   FALLBACK: use BroadcastChannel + localStorage for same-device
-   Real multi-device needs actual Firebase credentials
-   We'll use a simulated sync via the Anthropic storage API
-   as the shared backend (polling every 1.5s)
-   ============================================================ */
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 let roomKey = '';
 let state = { t2list:[], logs:[], roundIdx:0, mode:'rr', version:0 };
 let role = 't1';
 let initBreaks = [];
-let isSaving = false;
 let myVersion = 0;
-let db = null; // Firebase DB ref
-
-// BroadcastChannel for same-browser sync (instant)
-let bc = null;
+let fbRef = null;
+let isLocalChange = false;
 
 function joinRoom(){
   const v = document.getElementById('room-inp').value.trim().toUpperCase();
   if(!v){ document.getElementById('room-inp').focus(); return; }
-  roomKey = 'sdq-' + v;
+  roomKey = 'rooms/' + v;
   document.getElementById('setup').style.display = 'none';
   document.getElementById('room-label').textContent = '🏠 ' + v;
   localStorage.setItem('sdq-last-room', v);
@@ -296,106 +289,41 @@ function joinRoom(){
 document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
 document.getElementById('room-inp').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase(); });
 
-// Pre-fill last room
 const lastRoom = localStorage.getItem('sdq-last-room');
 if(lastRoom) document.getElementById('room-inp').value = lastRoom;
 
 /* ============================================================
-   SYNC ENGINE
-   Primary: window.storage (Anthropic shared storage, works in Artifact)
-   Fallback: localStorage + BroadcastChannel (same-device)
+   FIREBASE SYNC ENGINE
    ============================================================ */
-async function initSync(){
+function initSync(){
   setSyncStatus('loading');
-
-  // BroadcastChannel for instant same-device/tab sync
-  try {
-    bc = new BroadcastChannel(roomKey);
-    bc.onmessage = (e) => {
-      const d = e.data;
-      if(d && d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    };
-  } catch(e) {}
-
-  // Load initial state
-  await loadState();
-  setSyncStatus('ok');
-
-  // Poll every 1.5s for cross-device sync
-  setInterval(syncPoll, 1500);
-}
-
-async function syncPoll(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      if(d.version > myVersion){
-        state = d;
-        myVersion = d.version;
-        fullRender();
-      }
-    }
+  fbRef = db.ref(roomKey);
+  fbRef.on('value', (snapshot) => {
+    if(isLocalChange) { isLocalChange = false; return; }
+    const data = snapshot.val();
+    if(data){ state = data; myVersion = data.version || 0; fullRender(); }
     setSyncStatus('ok');
-  } catch(e) {
-    // Fallback to localStorage
-    try {
-      const raw = localStorage.getItem(roomKey);
-      if(raw){
-        const d = JSON.parse(raw);
-        if(d.version > myVersion){ state=d; myVersion=d.version; fullRender(); }
-      }
-    } catch(e2){}
-    setSyncStatus('warn');
-  }
+  }, (error) => {
+    console.error('Firebase error:', error);
+    setSyncStatus('err');
+  });
 }
 
-async function loadState(){
-  try {
-    const r = await window.storage.get(roomKey, true);
-    if(r && r.value){
-      const d = JSON.parse(r.value);
-      state = d;
-      myVersion = d.version || 0;
-    }
-  } catch(e) {
-    const raw = localStorage.getItem(roomKey);
-    if(raw) try { state = JSON.parse(raw); myVersion = state.version||0; } catch(e2){}
-  }
-}
-
-async function saveState(){
-  if(isSaving) return;
-  isSaving = true;
-  myVersion = (myVersion||0) + 1;
+function saveState(){
+  myVersion = (myVersion || 0) + 1;
   state.version = myVersion;
-  const payload = JSON.stringify(state);
-
-  // BroadcastChannel (instant for same device)
-  try { if(bc) bc.postMessage(state); } catch(e){}
-
-  // localStorage fallback
-  try { localStorage.setItem(roomKey, payload); } catch(e){}
-
-  // Shared storage (cross-device)
-  try {
-    await window.storage.set(roomKey, payload, true);
-    setSyncStatus('ok');
-  } catch(e) {
-    setSyncStatus('warn');
-  }
-  isSaving = false;
+  isLocalChange = true;
+  fbRef.set(state).catch(error => {
+    console.error('Save error:', error);
+    setSyncStatus('err');
+  });
 }
 
 function setSyncStatus(s){
   const dot = document.getElementById('sdot');
   const txt = document.getElementById('stxt');
-  if(s==='ok'){ dot.className='dot ok'; txt.textContent='ซิงค์แล้ว'; }
-  else if(s==='warn'){ dot.className='dot'; txt.textContent='ซิงค์จำกัด (อุปกรณ์เดียวกัน)'; dot.style.background='var(--amber)'; }
+  if(s==='ok'){ dot.className='dot ok'; txt.textContent='ซิงค์แล้ว (Firebase)'; }
+  else if(s==='err'){ dot.className='dot err'; txt.textContent='ซิงค์ล้มเหลว'; }
   else { dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...'; }
 }
 
@@ -462,7 +390,7 @@ function updateModeBanner(){
 }
 
 /* ============================================================
-   INIT BREAKS (add form)
+   INIT BREAKS
    ============================================================ */
 function addInitBreak(){ initBreaks.push({s:'12:00',e:'13:00'}); renderInitBreaks(); }
 function removeInitBreak(i){ initBreaks.splice(i,1); renderInitBreaks(); }
@@ -552,7 +480,6 @@ function assignTicket(){
   const mode=state.mode||'rr';
 
   if(mode==='rr'){
-    // Round Robin — วนตามลำดับคิว
     const n=state.t2list.length;
     const start=(state.roundIdx||0)%n;
     for(let i=0;i<n;i++){
@@ -560,13 +487,11 @@ function assignTicket(){
       if(getStatus(state.t2list[idx])==='active'){ chosen=state.t2list[idx]; state.roundIdx=idx+1; break; }
     }
   } else {
-    // Fair — มอบให้คนที่รับน้อยสุด (Round Robin ถ้าเท่ากัน)
     const min=Math.min(...avail.map(t=>t.tickets.length));
     const cands=avail.filter(t=>t.tickets.length===min);
     if(cands.length===1){
       chosen=cands[0];
     } else {
-      // หา idx ของ cands ใน t2list แล้ววน
       const n=state.t2list.length;
       const start=(state.roundIdx||0)%n;
       for(let i=0;i<n;i++){
@@ -582,7 +507,6 @@ function assignTicket(){
   document.getElementById('ticketnum').value='';
   document.getElementById('ticketnum').focus();
 
-  // หาคนถัดไปในคิว
   let nextName='–';
   if(mode==='rr'){
     const n=state.t2list.length;
@@ -595,7 +519,6 @@ function assignTicket(){
     if(avail2.length){
       const mn=Math.min(...avail2.map(t=>t.tickets.length));
       const nx=avail2.filter(t=>t.tickets.length===mn);
-      // ถ้า chosen ยังน้อยสุดให้ chosen อีก
       if(chosen.tickets.length<=mn) nextName=chosen.name;
       else nextName=nx[0]?.name||'–';
     } else { nextName=chosen.name; }
@@ -652,7 +575,6 @@ function renderGrid(gid, isAdmin){
     const st=getStatus(t);
     const card=document.createElement('div'); card.className='t2c '+st; card.id=gid+'-c-'+ti;
 
-    // head
     const hd=document.createElement('div'); hd.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:.3rem';
     const nm=document.createElement('div'); nm.className='t2n'; nm.textContent=t.name;
     const rhs=document.createElement('div'); rhs.style.cssText='display:flex;gap:4px;align-items:center;flex-shrink:0';
@@ -661,7 +583,6 @@ function renderGrid(gid, isAdmin){
     if(isAdmin){ const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕'; del.onclick=()=>removeT2(ti); rhs.append(del); }
     hd.append(nm,rhs); card.appendChild(hd);
 
-    // time
     const tr=document.createElement('div'); tr.className='t2t';
     if(isAdmin){
       tr.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:.35rem';
@@ -674,34 +595,30 @@ function renderGrid(gid, isAdmin){
     }
     card.appendChild(tr);
 
-    // queue / fair badge
     const qb=document.createElement('div'); qb.id=gid+'-q-'+ti; qb.style.cssText='margin-bottom:.3rem;min-height:18px';
     if(mode==='rr'){
       const pos=qOrder[ti];
-      if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+      if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 ค่ายถัดไป</span>';
       else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
     } else {
       const avail2=(state.t2list||[]).filter(x=>getStatus(x)==='active');
       if(avail2.length && st==='active'){
         const mn=Math.min(...avail2.map(x=>x.tickets.length));
-        if((t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+        if((t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ ต่ำสุด</span>';
       }
     }
     card.appendChild(qb);
 
-    // count
     const cw=document.createElement('div'); cw.style.cssText='display:flex;align-items:baseline;gap:6px';
     const cnt=document.createElement('div'); cnt.className='t2cnt'; cnt.id=gid+'-cnt-'+ti; cnt.textContent=(t.tickets||[]).length;
     const cl=document.createElement('div'); cl.className='t2cl'; cl.textContent='tickets';
     cw.append(cnt,cl); card.appendChild(cw);
 
-    // chips
     const chips=document.createElement('div'); chips.className='chips'; chips.id=gid+'-ch-'+ti;
     (t.tickets||[]).slice(-4).forEach(k=>{ const c=document.createElement('span'); c.className='chip'; c.textContent=k; chips.appendChild(c); });
     if((t.tickets||[]).length>4){ const x=document.createElement('span'); x.style.cssText='font-size:11px;color:var(--faint)'; x.textContent='+'+ ((t.tickets||[]).length-4); chips.appendChild(x); }
     card.appendChild(chips);
 
-    // breaks (admin editable)
     if(isAdmin){
       const bs=document.createElement('div'); bs.className='bsec';
       const bl=document.createElement('div'); bl.className='blbl'; bl.textContent='ช่วงพักเบรก'; bs.appendChild(bl);
@@ -712,7 +629,7 @@ function renderGrid(gid, isAdmin){
       bs.appendChild(ab); card.appendChild(bs);
     } else if((t.breaks||[]).length){
       const bpills=document.createElement('div'); bpills.style.cssText='display:flex;flex-wrap:wrap;gap:3px;margin-top:.4rem';
-      (t.breaks||[]).forEach(b=>{ const p=document.createElement('span'); p.style.cssText='font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px'; p.textContent='☕ '+b.s+'–'+b.e; bpills.appendChild(p); });
+      (t.breaks||[]).forEach(b=>{ const p=document.createElement('span'); p.style.cssText='font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px'; p.textContent=b.s+' – '+b.e; bpills.appendChild(p); });
       card.appendChild(bpills);
     }
     grid.appendChild(card);
@@ -740,7 +657,7 @@ function renderLogs(){
 }
 
 /* ============================================================
-   STATUS CHANGE CHECKER (every second, no full rebuild)
+   STATUS CHANGE CHECKER
    ============================================================ */
 function checkStatuses(){
   let changed=false;
@@ -774,11 +691,11 @@ function patchCards(){
       if(qb){
         if(mode==='rr'){
           const pos=qOrder[ti];
-          if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+          if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 ค่ายถัดไป</span>';
           else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
           else qb.innerHTML='';
         } else {
-          if(st==='active'&&(t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+          if(st==='active'&&(t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ ต่ำสุด</span>';
           else qb.innerHTML='';
         }
       }
