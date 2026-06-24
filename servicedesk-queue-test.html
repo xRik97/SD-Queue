@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD Queue — Service Desk</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.0/firebase-database-compat.min.js"></script>
+<style>
+:root{
+  --bg:#F5F4F0;--surface:#FFFFFF;--border:#E4E2DC;--border-s:#C8C5BC;
+  --text:#1A1915;--muted:#6B6860;--faint:#A09E99;
+  --accent:#2563EB;--accent-l:#EEF3FD;
+  --green:#16A34A;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --r:10px;--rs:6px;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+}
+[data-dark]{
+  --bg:#111110;--surface:#1C1C1A;--border:#2A2A27;--border-s:#3D3D39;
+  --text:#F0EFE9;--muted:#A09E99;--faint:#5A5855;
+  --accent-l:#1E2D4A;--green-l:#0D2B1A;--amber-l:#2B1F09;--red-l:#2B1010;--purple-l:#2D1F4A;
+  --shadow:0 1px 3px rgba(0,0,0,.3);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:-apple-system,'Segoe UI','Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 1.25rem;gap:.75rem;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.01em}.logo span{color:var(--accent)}
+.nav-r{margin-left:auto;display:flex;align-items:center;gap:.5rem}
+.clock{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border)}
+.sync-badge{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--bg)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.dot.ok{animation:pulse 2s infinite}.dot.err{background:var(--red);animation:none}.dot.loading{background:var(--amber);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--rs);width:32px;height:32px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:15px}
+.icon-btn:hover{background:var(--bg)}
+
+/* TOPBAR (role + mode) */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.5rem 1.25rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:2px;gap:2px}
+.seg-btn{padding:4px 14px;border-radius:4px;border:none;background:none;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s}
+.seg-btn.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.mode-seg{margin-left:auto}
+.mode-rr.on{color:var(--accent);background:var(--accent-l)}
+.mode-fair.on{color:var(--purple);background:var(--purple-l)}
+.divider-v{width:1px;height:20px;background:var(--border)}
+
+/* LAYOUT */
+.wrap{max-width:1280px;margin:0 auto;padding:1.25rem;display:grid;grid-template-columns:320px 1fr;gap:1.25rem;align-items:start}
+@media(max-width:820px){.wrap{grid-template-columns:1fr}}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:1rem;overflow:hidden}
+.card:last-child{margin-bottom:0}
+.ch{padding:.8rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.ct{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cb{padding:1.1rem}
+
+/* FORM */
+.lbl{font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px}
+input[type=text],input[type=time]{width:100%;padding:7px 10px;border:1px solid var(--border-s);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
+input[type=time]{font-variant-numeric:tabular-nums}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.fp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mb{margin-bottom:.75rem}
+.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border-s);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);transition:all .12s;white-space:nowrap;font-family:inherit}
+.btn:hover{background:var(--bg)}.btn:active{transform:scale(.98)}
+.btn-p{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-p:hover{opacity:.88}
+.btn-full{width:100%}
+.btn-xs{padding:3px 8px;font-size:11px}
+.btn-del{color:var(--red);border-color:var(--red)}.btn-del:hover{background:var(--red-l)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;line-height:1.7}
+.b-gr{background:var(--green-l);color:var(--green)}
+.b-am{background:var(--amber-l);color:var(--amber)}
+.b-bl{background:var(--accent-l);color:var(--accent)}
+.b-gy{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.b-pu{background:var(--purple-l);color:var(--purple)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem}
+.sbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:.6rem;text-align:center}
+.snum{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.slbl{font-size:11px;color:var(--muted)}
+
+/* T2 GRID */
+.t2g{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.t2c{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.9rem;transition:border-color .2s,background .2s}
+.t2c.active{border-color:var(--green)}
+.t2c.offqueue{border-color:var(--amber);background:var(--amber-l)}
+.t2c.breaking{opacity:.65}
+.t2c.ended{opacity:.38}
+.t2c.waiting{border-style:dashed}
+.t2n{font-size:14px;font-weight:600}
+.t2t{font-size:12px;color:var(--muted);margin-top:2px}
+.t2cnt{font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-.02em;line-height:1;margin:.4rem 0 0}
+.t2cl{font-size:11px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:.35rem;min-height:16px}
+.chip{font-size:11px;background:var(--accent-l);color:var(--accent);padding:1px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
+.bsec{margin-top:.6rem;border-top:1px solid var(--border);padding-top:.6rem}
+.blbl{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
+.brow{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.ti{padding:4px 6px;font-size:12px;border-radius:5px;border:1px solid var(--border-s);background:var(--bg);color:var(--text);width:80px;outline:none;font-variant-numeric:tabular-nums;font-family:inherit}
+.ti:focus{border-color:var(--accent)}
+.sep{font-size:12px;color:var(--faint);flex-shrink:0}
+.add-brk{width:100%;border:1px dashed var(--border-s);border-radius:var(--rs);padding:4px;font-size:11px;color:var(--muted);background:none;cursor:pointer;margin-top:3px;font-family:inherit}
+.add-brk:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
+
+/* ASSIGN */
+.aw{display:flex;gap:8px;background:var(--bg);border:1.5px solid var(--border-s);border-radius:var(--r);padding:6px 8px;transition:border-color .15s}
+.aw:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.ai{flex:1;border:none;background:transparent;outline:none;font-size:15px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums;font-family:inherit}
+.ai::placeholder{color:var(--faint);font-weight:400}
+.fb{margin-top:.65rem;padding:.65rem 1rem;border-radius:var(--rs);font-size:13px;font-weight:500;display:none}
+.fb.show{display:block}
+.fb.s{background:var(--green-l);color:var(--green)}
+.fb.w{background:var(--amber-l);color:var(--amber)}
+.fb.d{background:var(--red-l);color:var(--red)}
+
+/* LOG */
+.log{max-height:200px;overflow-y:auto}
+.li{display:flex;gap:8px;padding:.4rem 1.1rem;border-bottom:1px solid var(--border);font-size:12px}
+.li:last-child{border:none}
+.lt{color:var(--faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+.lm{color:var(--muted)}.lm.s{color:var(--green)}.lm.w{color:var(--amber)}.lm.d{color:var(--red)}.lm.i{color:var(--accent)}
+
+/* MODE INDICATOR */
+.mode-banner{display:flex;align-items:center;gap:8px;padding:.5rem .9rem;border-radius:var(--rs);margin-bottom:1rem;font-size:13px;font-weight:500}
+.mode-banner.rr{background:var(--accent-l);color:var(--accent)}
+.mode-banner.fair{background:var(--purple-l);color:var(--purple)}
+
+.empty{text-align:center;padding:2rem 1rem;color:var(--faint);font-size:13px}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border-s);border-radius:4px}
+
+/* SETUP OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:var(--surface);border-radius:var(--r);padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:.5rem}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
+.room-code{font-size:28px;font-weight:700;letter-spacing:.15em;text-align:center;padding:.75rem;background:var(--bg);border-radius:var(--rs);border:1px solid var(--border);margin:.75rem 0;color:var(--accent);cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ROOM SETUP -->
+<div class="overlay" id="setup">
+  <div class="modal">
+    <h2>SD Queue 🎫</h2>
+    <p>ใส่รหัสห้องเดียวกันทุกเครื่อง เพื่อซิงค์ข้อมูลร่วมกัน real-time</p>
+    <div class="mb"><label class="lbl">รหัสห้อง (Room Code)</label>
+      <input type="text" id="room-inp" placeholder="เช่น SHIFT1, MORNING, ABC123" style="font-size:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase" maxlength="12" /></div>
+    <button class="btn btn-p btn-full" onclick="joinRoom()" style="padding:10px">เข้าห้อง →</button>
+    <p style="font-size:11px;color:var(--faint);margin-top:.75rem;text-align:center">ทุกคนที่ใช้รหัสเดียวกันจะเห็นข้อมูลเดียวกัน</p>
+  </div>
+</div>
+
+<nav>
+  <div class="logo">SD <span>Queue</span></div>
+  <span id="room-label" style="font-size:12px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border)"></span>
+  <div class="nav-r">
+    <div class="sync-badge"><span class="dot loading" id="sdot"></span><span id="stxt">กำลังเชื่อมต่อ...</span></div>
+    <div class="clock" id="clock">--:--:--</div>
+    <button class="icon-btn" onclick="toggleDark()">🌙</button>
+  </div>
+</nav>
+
+<div class="topbar">
+  <!-- Role selector -->
+  <div class="seg">
+    <button class="seg-btn on" id="rbtn-t1" onclick="setRole('t1')">🎫 T1 มอบหมาย</button>
+    <button class="seg-btn" id="rbtn-admin" onclick="setRole('admin')">⚙️ Admin</button>
+  </div>
+  <div class="divider-v"></div>
+  <!-- Mode selector -->
+  <span style="font-size:12px;color:var(--muted)">โหมดคิว:</span>
+  <div class="seg mode-seg">
+    <button class="seg-btn mode-rr on" id="mbtn-rr" onclick="setMode('rr')">🔄 วนคิว (Round Robin)</button>
+    <button class="seg-btn mode-fair" id="mbtn-fair" onclick="setMode('fair')">⚖️ ยุติธรรม (เท่ากัน)</button>
+  </div>
+</div>
+
+<!-- T1 VIEW -->
+<div id="vt1" class="wrap">
+  <div>
+    <div class="card">
+      <div class="ch"><span class="ct">มอบหมาย Ticket</span></div>
+      <div class="cb">
+        <div id="mode-banner-t1" class="mode-banner rr">🔄 โหมดวนคิว — วนตามลำดับ ข้ามคนที่เบรก</div>
+        <div class="aw">
+          <input class="ai" type="text" id="ticketnum" placeholder="เลข Ticket เช่น INC0012345" onkeydown="if(event.key==='Enter')assignTicket()" />
+          <button class="btn btn-p" onclick="assignTicket()">มอบหมาย →</button>
+        </div>
+        <div class="fb" id="fb"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">ประวัติ</span></div>
+      <div class="log" id="log-t1"><div class="empty">ยังไม่มีรายการ</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="stats" id="stats"></div>
+    <div class="card">
+      <div class="ch"><span class="ct">T2 ในชิฟ</span></div>
+      <div class="cb"><div class="t2g" id="g-t1"><div class="empty">ยังไม่มี T2</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN VIEW -->
+<div id="vadmin" class="wrap" style="display:none">
+  <div>
+    <div class="card">
+      <div class="ch"><span class="ct">เพิ่ม T2 เข้างาน</span></div>
+      <div class="cb">
+        <div class="mb"><label class="lbl">ชื่อ T2</label>
+          <input type="text" id="t2name" placeholder="เช่น สมชาย, น้องปลา..." onkeydown="if(event.key==='Enter')addT2()" /></div>
+        <div class="fp mb">
+          <div><label class="lbl">เวลาเข้า</label><input type="time" id="t2s" /></div>
+          <div><label class="lbl">เวลาเลิก</label><input type="time" id="t2e" /></div>
+        </div>
+        <label class="lbl" style="margin-bottom:4px">ช่วงเบรก (เพิ่มได้หลายช่วง)</label>
+        <div id="init-brks"></div>
+        <button class="add-brk" onclick="addInitBreak()">+ เพิ่มช่วงเบรก</button>
+        <div style="height:10px"></div>
+        <button class="btn btn-p btn-full" onclick="addT2()">+ เพิ่ม T2 เข้าคิว</button>
+        <p style="font-size:11px;color:var(--faint);margin-top:.5rem;text-align:center">ออกจากคิว 15 นาทีก่อนเบรกและก่อนเลิกงาน</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">ประวัติ</span><button class="btn btn-xs" style="margin-left:auto" onclick="clearLog()">ล้าง</button></div>
+      <div class="log" id="log-admin"><div class="empty">ยังไม่มีรายการ</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="stats" id="stats-admin"></div>
+    <div class="card">
+      <div class="ch"><span class="ct">T2 ในชิฟ</span></div>
+      <div class="cb"><div class="t2g" id="g-admin"><div class="empty">ยังไม่มี T2</div></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   FIREBASE CONFIG — using a free public test project
+   Users can replace with their own Firebase project
+   ============================================================ */
+const FB_CONFIG = {
+    apiKey: "AIzaSyCM7Ahrc5cXCpVtrYMalDyj27-tE9fJIcE",
+    authDomain: "sd-queue.firebaseapp.com",
+    databaseURL: "https://sd-queue-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "sd-queue",
+    storageBucket: "sd-queue.firebasestorage.app",
+    messagingSenderId: "719467952102",
+    appId: "1:719467952102:web:aad30d55ace17b13d0c827",
+    measurementId: "G-XHS3WM8251"
+};
+
+/* ============================================================
+   FALLBACK: use BroadcastChannel + localStorage for same-device
+   Real multi-device needs actual Firebase credentials
+   We'll use a simulated sync via the Anthropic storage API
+   as the shared backend (polling every 1.5s)
+   ============================================================ */
+
+let roomKey = '';
+let state = { t2list:[], logs:[], roundIdx:0, mode:'rr', version:0 };
+let role = 't1';
+let initBreaks = [];
+let isSaving = false;
+let myVersion = 0;
+let db = null; // Firebase DB ref
+
+// BroadcastChannel for same-browser sync (instant)
+let bc = null;
+
+function joinRoom(){
+  const v = document.getElementById('room-inp').value.trim().toUpperCase();
+  if(!v){ document.getElementById('room-inp').focus(); return; }
+  roomKey = 'sdq-' + v;
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('room-label').textContent = '🏠 ' + v;
+  localStorage.setItem('sdq-last-room', v);
+  initSync();
+  setDefaults();
+  fullRender();
+}
+
+document.getElementById('room-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
+document.getElementById('room-inp').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase(); });
+
+// Pre-fill last room
+const lastRoom = localStorage.getItem('sdq-last-room');
+if(lastRoom) document.getElementById('room-inp').value = lastRoom;
+
+/* ============================================================
+   SYNC ENGINE
+   Primary: window.storage (Anthropic shared storage, works in Artifact)
+   Fallback: localStorage + BroadcastChannel (same-device)
+   ============================================================ */
+async function initSync(){
+  setSyncStatus('loading');
+
+  // BroadcastChannel for instant same-device/tab sync
+  try {
+    bc = new BroadcastChannel(roomKey);
+    bc.onmessage = (e) => {
+      const d = e.data;
+      if(d && d.version > myVersion){
+        state = d;
+        myVersion = d.version;
+        fullRender();
+      }
+    };
+  } catch(e) {}
+
+  // Load initial state
+  await loadState();
+  setSyncStatus('ok');
+
+  // Poll every 1.5s for cross-device sync
+  setInterval(syncPoll, 1500);
+}
+
+async function syncPoll(){
+  try {
+    const r = await window.storage.get(roomKey, true);
+    if(r && r.value){
+      const d = JSON.parse(r.value);
+      if(d.version > myVersion){
+        state = d;
+        myVersion = d.version;
+        fullRender();
+      }
+    }
+    setSyncStatus('ok');
+  } catch(e) {
+    // Fallback to localStorage
+    try {
+      const raw = localStorage.getItem(roomKey);
+      if(raw){
+        const d = JSON.parse(raw);
+        if(d.version > myVersion){ state=d; myVersion=d.version; fullRender(); }
+      }
+    } catch(e2){}
+    setSyncStatus('warn');
+  }
+}
+
+async function loadState(){
+  try {
+    const r = await window.storage.get(roomKey, true);
+    if(r && r.value){
+      const d = JSON.parse(r.value);
+      state = d;
+      myVersion = d.version || 0;
+    }
+  } catch(e) {
+    const raw = localStorage.getItem(roomKey);
+    if(raw) try { state = JSON.parse(raw); myVersion = state.version||0; } catch(e2){}
+  }
+}
+
+async function saveState(){
+  if(isSaving) return;
+  isSaving = true;
+  myVersion = (myVersion||0) + 1;
+  state.version = myVersion;
+  const payload = JSON.stringify(state);
+
+  // BroadcastChannel (instant for same device)
+  try { if(bc) bc.postMessage(state); } catch(e){}
+
+  // localStorage fallback
+  try { localStorage.setItem(roomKey, payload); } catch(e){}
+
+  // Shared storage (cross-device)
+  try {
+    await window.storage.set(roomKey, payload, true);
+    setSyncStatus('ok');
+  } catch(e) {
+    setSyncStatus('warn');
+  }
+  isSaving = false;
+}
+
+function setSyncStatus(s){
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('stxt');
+  if(s==='ok'){ dot.className='dot ok'; txt.textContent='ซิงค์แล้ว'; }
+  else if(s==='warn'){ dot.className='dot'; txt.textContent='ซิงค์จำกัด (อุปกรณ์เดียวกัน)'; dot.style.background='var(--amber)'; }
+  else { dot.className='dot loading'; txt.textContent='กำลังเชื่อมต่อ...'; }
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function toM(t){ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; }
+function nowM(){ const n=new Date(); return n.getHours()*60+n.getMinutes(); }
+function fmtT(d){ return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
+function toggleDark(){ const e=document.documentElement; e.hasAttribute('data-dark')?(e.removeAttribute('data-dark'),localStorage.setItem('sd-dark','0')):(e.setAttribute('data-dark',''),localStorage.setItem('sd-dark','1')); }
+if(localStorage.getItem('sd-dark')==='1') document.documentElement.setAttribute('data-dark','');
+
+function getStatus(t){
+  const now=nowM(), s=toM(t.startTime), e=toM(t.endTime);
+  if(s!=null&&now<s) return 'waiting';
+  if(e!=null&&now>=e) return 'ended';
+  if(e!=null&&now>=e-15) return 'offqueue';
+  for(const b of(t.breaks||[])){
+    const bs=toM(b.s), be=toM(b.e);
+    if(bs!=null&&be!=null){ if(now>=bs&&now<be) return 'breaking'; if(now>=bs-15&&now<bs) return 'offqueue'; }
+  }
+  return 'active';
+}
+
+const ST={
+  active:'<span class="badge b-gr">● รับงาน</span>',
+  breaking:'<span class="badge b-gy">☕ เบรก</span>',
+  offqueue:'<span class="badge b-am">⏳ เคลียงาน</span>',
+  ended:'<span class="badge b-gy">— เลิกงาน</span>',
+  waiting:'<span class="badge b-bl">⏰ รอเข้างาน</span>'
+};
+
+/* ============================================================
+   ROLE & MODE
+   ============================================================ */
+function setRole(r){
+  role=r;
+  document.getElementById('vt1').style.display=r==='t1'?'grid':'none';
+  document.getElementById('vadmin').style.display=r==='admin'?'grid':'none';
+  document.getElementById('rbtn-t1').className='seg-btn'+(r==='t1'?' on':'');
+  document.getElementById('rbtn-admin').className='seg-btn'+(r==='admin'?' on':'');
+}
+
+function setMode(m){
+  state.mode = m;
+  document.getElementById('mbtn-rr').className='seg-btn mode-rr'+(m==='rr'?' on':'');
+  document.getElementById('mbtn-fair').className='seg-btn mode-fair'+(m==='fair'?' on':'');
+  updateModeBanner();
+  saveState();
+}
+
+function updateModeBanner(){
+  const m = state.mode||'rr';
+  document.getElementById('mbtn-rr').className='seg-btn mode-rr'+(m==='rr'?' on':'');
+  document.getElementById('mbtn-fair').className='seg-btn mode-fair'+(m==='fair'?' on':'');
+  const b = document.getElementById('mode-banner-t1');
+  if(m==='rr'){
+    b.className='mode-banner rr';
+    b.innerHTML='🔄 <strong>วนคิว</strong> — วนตามลำดับ พอกลับจากเบรกรอถึงรอบตัวเอง';
+  } else {
+    b.className='mode-banner fair';
+    b.innerHTML='⚖️ <strong>ยุติธรรม</strong> — มอบให้คนที่รับน้อยที่สุดก่อน';
+  }
+}
+
+/* ============================================================
+   INIT BREAKS (add form)
+   ============================================================ */
+function addInitBreak(){ initBreaks.push({s:'12:00',e:'13:00'}); renderInitBreaks(); }
+function removeInitBreak(i){ initBreaks.splice(i,1); renderInitBreaks(); }
+function renderInitBreaks(){
+  const el=document.getElementById('init-brks'); el.innerHTML='';
+  initBreaks.forEach((b,i)=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:5px';
+    const is=mkTI(b.s, v=>{initBreaks[i].s=v});
+    const ie=mkTI(b.e, v=>{initBreaks[i].e=v});
+    const sep=mkSep();
+    const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕';
+    del.onclick=()=>removeInitBreak(i);
+    row.append(is,sep,ie,del); el.appendChild(row);
+  });
+}
+
+function mkTI(val, onChange){
+  const inp=document.createElement('input');
+  inp.type='time'; inp.className='ti'; inp.value=val||''; inp.lang='th';
+  inp.addEventListener('change',()=>onChange(inp.value)); return inp;
+}
+function mkSep(){ const s=document.createElement('span'); s.className='sep'; s.textContent='–'; return s; }
+
+/* ============================================================
+   ADD / REMOVE T2
+   ============================================================ */
+function addT2(){
+  const name=document.getElementById('t2name').value.trim();
+  const start=document.getElementById('t2s').value;
+  const end=document.getElementById('t2e').value;
+  if(!name){ document.getElementById('t2name').focus(); return; }
+  if(!state.t2list) state.t2list=[];
+  state.t2list.push({id:Date.now()+'',name,startTime:start,endTime:end,breaks:[...initBreaks.map(b=>({...b}))],tickets:[],_prev:''});
+  document.getElementById('t2name').value='';
+  initBreaks=[]; renderInitBreaks();
+  addLog('เพิ่ม T2: '+name+' ('+start+'–'+end+')','i');
+  saveState(); fullRender();
+}
+function removeT2(ti){
+  addLog('ลบ T2: '+state.t2list[ti].name,'w');
+  state.t2list.splice(ti,1);
+  if((state.roundIdx||0)>=state.t2list.length) state.roundIdx=0;
+  saveState(); fullRender();
+}
+
+/* ============================================================
+   BREAKS (inline edit)
+   ============================================================ */
+function brkChange(ti,bi,f,v){ state.t2list[ti].breaks[bi][f]=v; saveState(); }
+function addBreak(ti){
+  if(!state.t2list[ti].breaks) state.t2list[ti].breaks=[];
+  state.t2list[ti].breaks.push({s:'12:00',e:'13:00'});
+  saveState();
+  const c=document.getElementById('brkc-'+ti); if(c) appendBrkRow(c,ti,state.t2list[ti].breaks.length-1);
+}
+function removeBreak(ti,bi){
+  state.t2list[ti].breaks.splice(bi,1);
+  saveState(); rebuildBrk(ti);
+}
+function updateWT(ti,f,v){ state.t2list[ti][f]=v; saveState(); }
+function appendBrkRow(cont,ti,bi){
+  const b=state.t2list[ti].breaks[bi];
+  const row=document.createElement('div'); row.className='brow'; row.id='br-'+ti+'-'+bi;
+  const is=mkTI(b.s,v=>brkChange(ti,bi,'s',v));
+  const ie=mkTI(b.e,v=>brkChange(ti,bi,'e',v));
+  const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕';
+  del.onclick=()=>removeBreak(ti,bi);
+  row.append(is,mkSep(),ie,del); cont.appendChild(row);
+}
+function rebuildBrk(ti){
+  const c=document.getElementById('brkc-'+ti); if(!c)return;
+  c.innerHTML=''; (state.t2list[ti].breaks||[]).forEach((_,bi)=>appendBrkRow(c,ti,bi));
+}
+
+/* ============================================================
+   ASSIGN — supports both modes
+   ============================================================ */
+function assignTicket(){
+  const ticket=document.getElementById('ticketnum').value.trim();
+  if(!ticket){ showFb('กรุณาใส่เลข Ticket','w'); return; }
+  if(!state.t2list||!state.t2list.length){ showFb('ยังไม่มี T2 ในคิว','d'); return; }
+
+  const avail=state.t2list.filter(t=>getStatus(t)==='active');
+  if(!avail.length){ showFb('ไม่มี T2 ที่พร้อมรับงานขณะนี้','d'); return; }
+
+  let chosen=null;
+  const mode=state.mode||'rr';
+
+  if(mode==='rr'){
+    // Round Robin — วนตามลำดับคิว
+    const n=state.t2list.length;
+    const start=(state.roundIdx||0)%n;
+    for(let i=0;i<n;i++){
+      const idx=(start+i)%n;
+      if(getStatus(state.t2list[idx])==='active'){ chosen=state.t2list[idx]; state.roundIdx=idx+1; break; }
+    }
+  } else {
+    // Fair — มอบให้คนที่รับน้อยสุด (Round Robin ถ้าเท่ากัน)
+    const min=Math.min(...avail.map(t=>t.tickets.length));
+    const cands=avail.filter(t=>t.tickets.length===min);
+    if(cands.length===1){
+      chosen=cands[0];
+    } else {
+      // หา idx ของ cands ใน t2list แล้ววน
+      const n=state.t2list.length;
+      const start=(state.roundIdx||0)%n;
+      for(let i=0;i<n;i++){
+        const idx=(start+i)%n;
+        if(cands.includes(state.t2list[idx])){ chosen=state.t2list[idx]; state.roundIdx=idx+1; break; }
+      }
+    }
+  }
+
+  if(!chosen){ showFb('ไม่มี T2 ที่พร้อมรับงานขณะนี้','d'); return; }
+  if(!chosen.tickets) chosen.tickets=[];
+  chosen.tickets.push(ticket);
+  document.getElementById('ticketnum').value='';
+  document.getElementById('ticketnum').focus();
+
+  // หาคนถัดไปในคิว
+  let nextName='–';
+  if(mode==='rr'){
+    const n=state.t2list.length;
+    for(let i=0;i<n;i++){
+      const idx=((state.roundIdx||0)+i)%n;
+      if(getStatus(state.t2list[idx])==='active'){ nextName=state.t2list[idx].name; break; }
+    }
+  } else {
+    const avail2=state.t2list.filter(t=>getStatus(t)==='active'&&t!==chosen);
+    if(avail2.length){
+      const mn=Math.min(...avail2.map(t=>t.tickets.length));
+      const nx=avail2.filter(t=>t.tickets.length===mn);
+      // ถ้า chosen ยังน้อยสุดให้ chosen อีก
+      if(chosen.tickets.length<=mn) nextName=chosen.name;
+      else nextName=nx[0]?.name||'–';
+    } else { nextName=chosen.name; }
+  }
+
+  addLog('Ticket '+ticket+' → '+chosen.name,'s');
+  showFb('✓ มอบหมาย '+ticket+' ให้ '+chosen.name+' | ถัดไป: '+nextName,'s');
+  saveState(); fullRender();
+}
+
+function showFb(msg,type){
+  const f=document.getElementById('fb');
+  f.textContent=msg; f.className='fb show '+({s:'s',w:'w',d:'d'}[type]||'s');
+  clearTimeout(f._t); f._t=setTimeout(()=>f.classList.remove('show'),4000);
+}
+
+/* ============================================================
+   LOG
+   ============================================================ */
+function addLog(msg,type){ if(!state.logs)state.logs=[]; state.logs.unshift({msg,type,time:fmtT(new Date())}); if(state.logs.length>80)state.logs.pop(); }
+function clearLog(){ state.logs=[]; saveState(); renderLogs(); }
+
+/* ============================================================
+   QUEUE ORDER
+   ============================================================ */
+function getQueueOrder(){
+  const order={}, n=(state.t2list||[]).length; let pos=1;
+  for(let i=0;i<n;i++){
+    const idx=((state.roundIdx||0)+i)%n;
+    if(getStatus(state.t2list[idx])==='active') order[idx]=pos++;
+  }
+  return order;
+}
+
+/* ============================================================
+   FULL RENDER
+   ============================================================ */
+function fullRender(){
+  updateModeBanner();
+  renderGrid('g-t1', false);
+  renderGrid('g-admin', true);
+  renderStats('stats'); renderStats('stats-admin');
+  renderLogs();
+}
+
+function renderGrid(gid, isAdmin){
+  const grid=document.getElementById(gid); if(!grid)return;
+  const list=state.t2list||[];
+  if(!list.length){ grid.innerHTML='<div class="empty">ยังไม่มี T2<br>เพิ่มได้ที่แท็บ Admin</div>'; return; }
+  const qOrder=getQueueOrder();
+  const mode=state.mode||'rr';
+  grid.innerHTML='';
+  list.forEach((t,ti)=>{
+    const st=getStatus(t);
+    const card=document.createElement('div'); card.className='t2c '+st; card.id=gid+'-c-'+ti;
+
+    // head
+    const hd=document.createElement('div'); hd.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:.3rem';
+    const nm=document.createElement('div'); nm.className='t2n'; nm.textContent=t.name;
+    const rhs=document.createElement('div'); rhs.style.cssText='display:flex;gap:4px;align-items:center;flex-shrink:0';
+    const bdg=document.createElement('span'); bdg.id=gid+'-b-'+ti; bdg.innerHTML=ST[st]||'';
+    rhs.append(bdg);
+    if(isAdmin){ const del=document.createElement('button'); del.className='btn btn-xs btn-del'; del.textContent='✕'; del.onclick=()=>removeT2(ti); rhs.append(del); }
+    hd.append(nm,rhs); card.appendChild(hd);
+
+    // time
+    const tr=document.createElement('div'); tr.className='t2t';
+    if(isAdmin){
+      tr.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:.35rem';
+      const wis=mkTI(t.startTime, v=>updateWT(ti,'startTime',v));
+      const wie=mkTI(t.endTime,   v=>updateWT(ti,'endTime',v));
+      tr.append(wis,mkSep(),wie);
+    } else {
+      tr.textContent='🕐 '+(t.startTime||'–')+' – '+(t.endTime||'–');
+      tr.style.marginBottom='.35rem';
+    }
+    card.appendChild(tr);
+
+    // queue / fair badge
+    const qb=document.createElement('div'); qb.id=gid+'-q-'+ti; qb.style.cssText='margin-bottom:.3rem;min-height:18px';
+    if(mode==='rr'){
+      const pos=qOrder[ti];
+      if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+      else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
+    } else {
+      const avail2=(state.t2list||[]).filter(x=>getStatus(x)==='active');
+      if(avail2.length && st==='active'){
+        const mn=Math.min(...avail2.map(x=>x.tickets.length));
+        if((t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+      }
+    }
+    card.appendChild(qb);
+
+    // count
+    const cw=document.createElement('div'); cw.style.cssText='display:flex;align-items:baseline;gap:6px';
+    const cnt=document.createElement('div'); cnt.className='t2cnt'; cnt.id=gid+'-cnt-'+ti; cnt.textContent=(t.tickets||[]).length;
+    const cl=document.createElement('div'); cl.className='t2cl'; cl.textContent='tickets';
+    cw.append(cnt,cl); card.appendChild(cw);
+
+    // chips
+    const chips=document.createElement('div'); chips.className='chips'; chips.id=gid+'-ch-'+ti;
+    (t.tickets||[]).slice(-4).forEach(k=>{ const c=document.createElement('span'); c.className='chip'; c.textContent=k; chips.appendChild(c); });
+    if((t.tickets||[]).length>4){ const x=document.createElement('span'); x.style.cssText='font-size:11px;color:var(--faint)'; x.textContent='+'+ ((t.tickets||[]).length-4); chips.appendChild(x); }
+    card.appendChild(chips);
+
+    // breaks (admin editable)
+    if(isAdmin){
+      const bs=document.createElement('div'); bs.className='bsec';
+      const bl=document.createElement('div'); bl.className='blbl'; bl.textContent='ช่วงพักเบรก'; bs.appendChild(bl);
+      const bc=document.createElement('div'); bc.id='brkc-'+ti;
+      (t.breaks||[]).forEach((_,bi)=>appendBrkRow(bc,ti,bi));
+      bs.appendChild(bc);
+      const ab=document.createElement('button'); ab.className='add-brk'; ab.textContent='+ เพิ่มช่วงเบรก'; ab.onclick=()=>addBreak(ti);
+      bs.appendChild(ab); card.appendChild(bs);
+    } else if((t.breaks||[]).length){
+      const bpills=document.createElement('div'); bpills.style.cssText='display:flex;flex-wrap:wrap;gap:3px;margin-top:.4rem';
+      (t.breaks||[]).forEach(b=>{ const p=document.createElement('span'); p.style.cssText='font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px'; p.textContent='☕ '+b.s+'–'+b.e; bpills.appendChild(p); });
+      card.appendChild(bpills);
+    }
+    grid.appendChild(card);
+  });
+}
+
+function renderStats(id){
+  const el=document.getElementById(id); if(!el)return;
+  const list=state.t2list||[];
+  const avail=list.filter(t=>getStatus(t)==='active');
+  const total=list.reduce((s,t)=>s+(t.tickets||[]).length,0);
+  el.innerHTML=`
+    <div class="sbox"><div class="snum">${list.length}</div><div class="slbl">T2 ทั้งหมด</div></div>
+    <div class="sbox"><div class="snum" style="color:var(--green)">${avail.length}</div><div class="slbl">พร้อมรับงาน</div></div>
+    <div class="sbox"><div class="snum" style="color:var(--accent)">${total}</div><div class="slbl">Tickets วันนี้</div></div>`;
+}
+
+function renderLogs(){
+  ['log-t1','log-admin'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const logs=state.logs||[];
+    if(!logs.length){ el.innerHTML='<div class="empty">ยังไม่มีรายการ</div>'; return; }
+    el.innerHTML=logs.map(l=>`<div class="li"><span class="lt">${l.time}</span><span class="lm ${l.type||''}">${l.msg}</span></div>`).join('');
+  });
+}
+
+/* ============================================================
+   STATUS CHANGE CHECKER (every second, no full rebuild)
+   ============================================================ */
+function checkStatuses(){
+  let changed=false;
+  (state.t2list||[]).forEach(t=>{
+    const st=getStatus(t);
+    if(t._prev&&t._prev!==st){
+      if(st==='offqueue'){ addLog(t.name+' ออกจากคิวเพื่อเคลียงาน','w'); changed=true; }
+      else if(st==='active'&&t._prev==='breaking'){ addLog(t.name+' กลับจากเบรก พร้อมรับงาน','i'); changed=true; }
+    }
+    t._prev=st;
+  });
+  if(changed) saveState();
+}
+
+function patchCards(){
+  const qOrder=getQueueOrder();
+  const mode=state.mode||'rr';
+  const avail=(state.t2list||[]).filter(t=>getStatus(t)==='active');
+  const mn=avail.length?Math.min(...avail.map(t=>(t.tickets||[]).length)):0;
+  ['g-t1','g-admin'].forEach(gid=>{
+    (state.t2list||[]).forEach((t,ti)=>{
+      const card=document.getElementById(gid+'-c-'+ti);
+      const bdg=document.getElementById(gid+'-b-'+ti);
+      const cnt=document.getElementById(gid+'-cnt-'+ti);
+      const qb=document.getElementById(gid+'-q-'+ti);
+      if(!card)return;
+      const st=getStatus(t);
+      card.className='t2c '+st;
+      if(bdg)bdg.innerHTML=ST[st]||'';
+      if(cnt)cnt.textContent=(t.tickets||[]).length;
+      if(qb){
+        if(mode==='rr'){
+          const pos=qOrder[ti];
+          if(pos===1) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:1px 8px;border-radius:10px;border:1px solid var(--accent)">🎯 คิวถัดไป</span>';
+          else if(pos) qb.innerHTML='<span style="font-size:11px;color:var(--muted);background:var(--bg);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">คิวที่ '+pos+'</span>';
+          else qb.innerHTML='';
+        } else {
+          if(st==='active'&&(t.tickets||[]).length===mn) qb.innerHTML='<span style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-l);padding:1px 8px;border-radius:10px;border:1px solid var(--purple)">⚖️ รอรับถัดไป</span>';
+          else qb.innerHTML='';
+        }
+      }
+    });
+  });
+}
+
+/* ============================================================
+   DEFAULTS
+   ============================================================ */
+function setDefaults(){
+  const nd=new Date();
+  document.getElementById('t2s').value=String(nd.getHours()).padStart(2,'0')+':'+String(nd.getMinutes()).padStart(2,'0');
+  const ne=new Date(nd.getTime()+8*3600e3);
+  document.getElementById('t2e').value=String(ne.getHours()).padStart(2,'0')+':'+String(ne.getMinutes()).padStart(2,'0');
+}
+
+/* ============================================================
+   TICK
+   ============================================================ */
+setInterval(()=>{
+  document.getElementById('clock').textContent=fmtT(new Date());
+  checkStatuses();
+  patchCards();
+  renderStats('stats'); renderStats('stats-admin');
+}, 1000);
+
+document.getElementById('clock').textContent=fmtT(new Date());
+renderInitBreaks();
+</script>
+</body>
+</html>
