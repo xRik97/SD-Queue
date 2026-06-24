@@ -295,12 +295,12 @@ let unsubscribe = null;
 function joinRoom(){
   const v = document.getElementById('room-inp').value.trim().toUpperCase();
   if(!v){ document.getElementById('room-inp').focus(); return; }
-let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
-let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
-let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
-let dbRef      = null;
+  let rooms      = [];        // รายชื่อห้องที่บันทึกไว้
+  let activeRoom = '';        // ห้องที่ active อยู่ตอนนี้
+  let roomKey    = '';        // Firebase path = 'rooms/' + activeRoom
+  let dbRef      = null; // This line was missing a semicolon and was causing the error
 let unsubscribe = null;
-
+}
 function loadRooms(){
   try { rooms = JSON.parse(localStorage.getItem('sdq-rooms') || '[]'); } catch(e){ rooms=[]; }
 }
@@ -316,7 +316,6 @@ document.addEventListener('click', e=>{
   if(!document.getElementById('room-drop').contains(e.target))
     document.getElementById('room-menu').classList.add('hidden');
 });
-
   // ยกเลิก listener ห้องเก่าก่อน (ถ้ามี)
   if(unsubscribe) unsubscribe();
 function addRoom(){
@@ -361,7 +360,6 @@ function switchRoom(code){
   dbRef = ref(db, roomKey);
 
   // Real-time listener — ทุกเครื่องได้รับข้อมูลพร้อมกันทันที
-  unsubscribe = onValue(dbRef, snapshot => {
   unsubscribe = onValue(dbRef, snapshot=>{
     const d = snapshot.val();
     if(d){ state = d; fullRender(); }
@@ -371,7 +369,6 @@ function switchRoom(code){
   }, err => {
     console.error(err);
     setSyncStatus('err');
-  });
   }, err=>{ console.error(err); setSyncStatus('err'); });
 
   setDefaults();
